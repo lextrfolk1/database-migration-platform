@@ -8,7 +8,15 @@ spring:
     username: postgres
     driver-class-name: org.postgresql.Driver
     password: admin
+  flyway:
+    baseline-on-migrate: true
+    cleanDisabled: false
+    schemas: meta,data
+    enabled: false
+    locations:
+      -- classpath:db/init/02_generic_service
+      -- classpath:db/init/03_workflow_service
 
-scripts:
-   locations: classpath:db/init/**/**/*.sql
-   exclusions: user.sql
+logging:
+  level:
+    org.flywaydb: DEBUG
