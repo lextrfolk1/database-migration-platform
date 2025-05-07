@@ -1,0 +1,14 @@
+server:
+  port: 8049
+spring:
+  application:
+    name: database-migrator
+  datasource:
+    url: jdbc:postgresql://localhost:5433/lextr
+    username: postgres
+    driver-class-name: org.postgresql.Driver
+    password: admin
+
+scripts:
+   locations: classpath:db/init/**/**/*.sql
+   exclusions: user.sql
