@@ -17,6 +17,6 @@ public class SqlExecutorController {
 
     @PostMapping("/run")
     public String runSqlScripts() {
-        return sqlExecutionService.executeAllScripts();
+        return sqlExecutionService.executeScriptsByDirectory();
     }
 }
