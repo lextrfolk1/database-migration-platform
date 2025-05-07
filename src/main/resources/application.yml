@@ -13,9 +13,7 @@ spring:
     cleanDisabled: false
     schemas: meta,data
     enabled: false
-    locations:
-      -- classpath:db/init/02_generic_service
-      -- classpath:db/init/03_workflow_service
+    locations: classpath:db/init/01_generic_service,classpath:db/init/02_workflow_service,classpath:db/init/03_supplemental_service,classpath:db/init/04_rules_service
 
 logging:
   level:
