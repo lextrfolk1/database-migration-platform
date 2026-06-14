@@ -15,6 +15,13 @@ spring:
     enabled: false
     locations: classpath:db/init/01_generic_service,classpath:db/init/02_workflow_service,classpath:db/init/03_supplemental_service,classpath:db/init/04_rules_service
 
+migration:
+  platform:
+    config-location: classpath:migration-platform.yml
+    audit-directory: build/audit
+    allow-production-rebuild: false
+    default-requested-by: dba-operator
+
 logging:
   level:
     org.flywaydb: DEBUG

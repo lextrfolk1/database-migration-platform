@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -f target/database-migrator-0.0.1-SNAPSHOT.jar ]]; then
+  java -jar target/database-migrator-0.0.1-SNAPSHOT.jar "$@"
+else
+  joined=""
+  for arg in "$@"; do
+    joined+="${arg} "
+  done
+  sh mvnw -q spring-boot:run "-Dspring-boot.run.arguments=${joined% }"
+fi
