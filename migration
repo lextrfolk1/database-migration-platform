@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -f target/database-migration-platform-0.0.1-SNAPSHOT.jar ]]; then
-  java -jar target/database-migration-platform-0.0.1-SNAPSHOT.jar "$@"
-else
+JAR_PATH="target/database-migration-platform-0.0.1-SNAPSHOT.jar"
+
+run_with_maven() {
   joined=""
   for arg in "$@"; do
     joined+="${arg} "
   done
   sh mvnw -q spring-boot:run "-Dspring-boot.run.arguments=${joined% }"
+}
+
+if [[ -f "${JAR_PATH}" ]] && unzip -p "${JAR_PATH}" META-INF/MANIFEST.MF 2>/dev/null | grep -q "Main-Class: org.springframework.boot.loader.launch.JarLauncher"; then
+  java -jar "${JAR_PATH}" "$@"
+else
+  run_with_maven "$@"
 fi
