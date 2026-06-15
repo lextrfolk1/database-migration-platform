@@ -35,3 +35,9 @@ services:
       - target: clickhouse-analytics-dev
         locations:
           - classpath:migrations/generic-service/clickhouse
+
+  semantic-service:
+    targetMappings:
+      - target: postgres-main-dev
+        locations:
+          - classpath:migrations/semantic-service/postgres
