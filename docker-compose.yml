@@ -1,9 +1,9 @@
-version: "3.9"
+name: database-migration-platform
 
 services:
   postgres:
     image: postgres:16
-    container_name: migration-platform-postgres
+    container_name: database-migration-platform-postgres
     environment:
       POSTGRES_DB: lextr
       POSTGRES_USER: postgres
@@ -13,7 +13,7 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
-    container_name: migration-platform-clickhouse
+    container_name: database-migration-platform-clickhouse
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
@@ -22,11 +22,11 @@ services:
       - "8123:8123"
       - "9000:9000"
 
-  migration-platform:
+  database-migration-platform:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: migration-platform-app
+    container_name: database-migration-platform-app
     depends_on:
       - postgres
       - clickhouse

@@ -5,7 +5,8 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.lextr.migrationplatform</groupId>
-	<artifactId>migration-platform</artifactId>
+	<artifactId>database-migration-platform</artifactId>
+	<name>database-migration-platform</name>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 

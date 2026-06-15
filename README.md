@@ -1,4 +1,4 @@
-# Migration Platform
+# Database Migration Platform
 
 DBA-operated migration platform built on Flyway and Spring Boot.
 

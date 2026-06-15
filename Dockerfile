@@ -7,7 +7,7 @@ RUN chmod +x mvnw && ./mvnw -q -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /workspace/target/migration-platform-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build /workspace/target/database-migration-platform-0.0.1-SNAPSHOT.jar app.jar
 ENV LEXTR_POSTGRES_PASSWORD=admin
 ENV LEXTR_CLICKHOUSE_PASSWORD=
 EXPOSE 8049

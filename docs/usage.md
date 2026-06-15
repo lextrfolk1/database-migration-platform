@@ -102,5 +102,5 @@ Content-Type: application/json
 ## External config
 
 ```bash
-./migration inventory --migration.platform.config-location=file:./migration-platform.yml
+./migration inventory --migration.platform.config-location=file:./database-migration-platform.yml
 ```

@@ -2,11 +2,11 @@ server:
   port: 8049
 spring:
   application:
-    name: migration-platform
+    name: database-migration-platform
 
 migration:
   platform:
-    config-location: classpath:migration-platform.yml
+    config-location: classpath:database-migration-platform.yml
     audit-directory: build/audit
     allow-production-rebuild: false
     default-requested-by: dba-operator

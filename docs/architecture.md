@@ -49,7 +49,7 @@ src/main/java/com/lextr/migrationplatform
 ## Resource layout
 
 - new sample database-specific migrations live under `src/main/resources/migrations/...`
-- external inventory is loaded from `classpath:migration-platform.yml` by default or an alternate path via `migration.platform.config-location`
+- external inventory is loaded from `classpath:database-migration-platform.yml` by default or an alternate path via `migration.platform.config-location`
 
 ## Core concepts
 

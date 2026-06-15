@@ -1,6 +1,6 @@
 # Configuration
 
-The default config file is `classpath:migration-platform.yml`.
+The default config file is `classpath:database-migration-platform.yml`.
 
 ## Example
 
@@ -80,4 +80,4 @@ New shape:
 - `migration.platform.allow-production-rebuild`
 - `migration.platform.default-requested-by`
 
-`application.yml` stays small on purpose. Database engines, targets, service mappings, schemas, and migration locations belong in `migration-platform.yml`, not in Spring datasource properties.
+`application.yml` stays small on purpose. Database engines, targets, service mappings, schemas, and migration locations belong in `database-migration-platform.yml`, not in Spring datasource properties.

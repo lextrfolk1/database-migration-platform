@@ -10,10 +10,10 @@ Adding a new database should not require changes to the core orchestration flow.
 - `strategy/` for database-specific behavior and SQL validation
 - `factory/` only if the new implementation is not already discovered by Spring
 - `pom.xml` for Flyway/JDBC dependencies
-- `migration-platform.yml` for new target definitions
+- `database-migration-platform.yml` for new target definitions
 - `tests/` for adapter, strategy, validation, and execution coverage
 
-`application.yml` usually does not need any database-specific change. It only points the platform at `migration-platform.yml` and sets platform-level properties such as audit directory and rebuild policy.
+`application.yml` usually does not need any database-specific change. It only points the platform at `database-migration-platform.yml` and sets platform-level properties such as audit directory and rebuild policy.
 
 ## Implementation steps
 
@@ -25,7 +25,7 @@ Adding a new database should not require changes to the core orchestration flow.
    Typical pattern:
    - `OracleDatabaseAdapter`
    - extend `AbstractJdbcDatabaseAdapter` when JDBC behavior matches the current adapters
-   - return the database name exactly as it will appear in `migration-platform.yml`, for example `oracle`
+   - return the database name exactly as it will appear in `database-migration-platform.yml`, for example `oracle`
 
 3. Create a Flyway adapter in `src/main/java/com/lextr/migrationplatform/adapter/`.
    Typical pattern:
@@ -57,7 +57,7 @@ Adding a new database should not require changes to the core orchestration flow.
 
    Only modify a factory if the new class is not already discoverable through the existing constructor-injected lists.
 
-7. Define target databases in `migration-platform.yml`.
+7. Define target databases in `database-migration-platform.yml`.
    Example:
 
    ```yaml
@@ -135,7 +135,7 @@ Adding a new database should not require changes to the core orchestration flow.
 - `pom.xml`
 - `src/main/java/com/lextr/migrationplatform/adapter/...`
 - `src/main/java/com/lextr/migrationplatform/strategy/...`
-- `src/main/resources/migration-platform.yml`
+- `src/main/resources/database-migration-platform.yml`
 - `src/main/resources/migrations/<service>/<database>/...`
 - `src/test/java/com/lextr/migrationplatform/...`
 - `docs/...`
@@ -160,7 +160,7 @@ If Oracle is added later, the expected minimal change set is:
 3. Add `OracleFlywayAdapter`.
 4. Add `OracleMigrationStrategy`.
 5. Add `OracleSqlValidationStrategy` only if the common validator is not sufficient.
-6. Add `oracle` targets in `migration-platform.yml`.
+6. Add `oracle` targets in `database-migration-platform.yml`.
 7. Add `migrations/<service>/oracle/` folders.
 8. Add adapter, validation, and execution tests.
 
@@ -188,7 +188,7 @@ Required changes:
 - Add a database strategy: <DatabaseName>MigrationStrategy.
 - Add a database-specific SQL validation strategy only if needed.
 - Ensure the existing factories can resolve the new implementations.
-- Support target definitions in migration-platform.yml using type: <database_type>.
+- Support target definitions in database-migration-platform.yml using type: <database_type>.
 - Support service targetMappings pointing to the new target.
 - Add sample migration folder layout under src/main/resources/migrations/<service>/<database_type>/.
 - Add tests for adapter selection, config generation, validation, planning, and execution flow.

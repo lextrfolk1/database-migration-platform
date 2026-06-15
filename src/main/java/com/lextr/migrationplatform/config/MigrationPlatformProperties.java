@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "migration.platform")
 public class MigrationPlatformProperties {
 
-    private String configLocation = "classpath:migration-platform.yml";
+    private String configLocation = "classpath:database-migration-platform.yml";
     private String auditDirectory = "build/audit";
     private boolean allowProductionRebuild;
     private String defaultRequestedBy = "dba-operator";
