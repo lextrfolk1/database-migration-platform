@@ -2,18 +2,7 @@ server:
   port: 8049
 spring:
   application:
-    name: database-migrator
-  datasource:
-    url: jdbc:postgresql://localhost:5433/lextr
-    username: postgres
-    driver-class-name: org.postgresql.Driver
-    password: admin
-  flyway:
-    baseline-on-migrate: true
-    cleanDisabled: false
-    schemas: meta,data
-    enabled: false
-    locations: classpath:db/init/01_generic_service,classpath:db/init/02_workflow_service,classpath:db/init/03_supplemental_service,classpath:db/init/04_rules_service
+    name: migration-platform
 
 migration:
   platform:

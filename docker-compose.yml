@@ -3,17 +3,17 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16
-    container_name: database-migrator-postgres
+    container_name: migration-platform-postgres
     environment:
       POSTGRES_DB: lextr
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
     ports:
-      - "5433:5432"
+      - "5434:5432"
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
-    container_name: database-migrator-clickhouse
+    container_name: migration-platform-clickhouse
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: default
@@ -26,7 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: database-migrator-platform
+    container_name: migration-platform-app
     depends_on:
       - postgres
       - clickhouse
