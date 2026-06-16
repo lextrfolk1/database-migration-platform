@@ -52,6 +52,7 @@ CREATE SCHEMA IF NOT EXISTS wkfl;          -- approval workflow
 -- ============================================================================
 -- meta.schema_catalog — registered schemas
 -- ============================================================================
+DROP TABLE IF EXISTS meta.schema_catalog;
 CREATE TABLE meta.schema_catalog (
     schema_cd            varchar(30)  PRIMARY KEY,
     schema_nm            varchar(100) NOT NULL,
@@ -68,6 +69,7 @@ CREATE TABLE meta.schema_catalog (
 -- ============================================================================
 -- meta.data_connection — connection registry (per-object engine routing)
 -- ============================================================================
+DROP TABLE IF EXISTS meta.data_connection;
 CREATE TABLE meta.data_connection (
     connection_id        uuid         PRIMARY KEY,
     connection_cd        varchar(50)  NOT NULL UNIQUE,
@@ -92,6 +94,7 @@ CREATE TABLE meta.data_connection (
 -- ============================================================================
 -- meta.object_catalog — registered semantic objects
 -- ============================================================================
+DROP TABLE IF EXISTS meta.object_catalog;
 CREATE TABLE meta.object_catalog (
     id                              bigserial    PRIMARY KEY,
     schema_cd                       varchar(30)  NOT NULL
@@ -146,6 +149,7 @@ CREATE INDEX ix_oc_status   ON meta.object_catalog (lifecycle_status_cd);
 -- ============================================================================
 -- meta.attribute_catalog — attributes per object  (carries Taxonomy/MDRM)
 -- ============================================================================
+DROP TABLE IF EXISTS meta.attribute_catalog;
 CREATE TABLE meta.attribute_catalog (
     id                          bigserial    PRIMARY KEY,
     schema_cd                   varchar(30)  NOT NULL,
@@ -205,6 +209,7 @@ CREATE INDEX ix_ac_taxonomy ON meta.attribute_catalog (taxonomy_cd);
 -- meta.semantic_relationship_catalog — governed joins (PG system of record;
 --    projected into Neo4j for traversal/visualization)
 -- ============================================================================
+DROP TABLE IF EXISTS meta.semantic_relationship_catalog;
 CREATE TABLE meta.semantic_relationship_catalog (
     id                      bigserial    PRIMARY KEY,
     relationship_cd         varchar(100) NOT NULL UNIQUE,
@@ -237,6 +242,7 @@ CREATE INDEX ix_rel_child  ON meta.semantic_relationship_catalog (child_schema_c
 -- ============================================================================
 -- meta.attribute_logical_name_override — governed per-attribute rename
 -- ============================================================================
+DROP TABLE IF EXISTS meta.attribute_logical_name_override;
 CREATE TABLE meta.attribute_logical_name_override (
     id                   bigserial    PRIMARY KEY,
     schema_cd            varchar(30)  NOT NULL,
@@ -265,6 +271,7 @@ CREATE TABLE meta.attribute_logical_name_override (
 --   pairing is blocked by OPA POL-CE-002. A pairing may be ACTIVE only after its
 --   filter attribute is confirmed indexed (activation gate, enforced in service).
 -- ============================================================================
+DROP TABLE IF EXISTS meta.attribute_pairing_catalog;
 CREATE TABLE meta.attribute_pairing_catalog (
     id                              bigserial    PRIMARY KEY,
     pairing_cd                      varchar(80)  NOT NULL UNIQUE,
@@ -320,6 +327,7 @@ CREATE INDEX ix_apc_client  ON meta.attribute_pairing_catalog (client_id);
 --   Filled by the semantic-service on first resolution; read on cache hit.
 --   Expiry (expires_ts) is evaluated in the service, not a generated column.
 -- ============================================================================
+DROP TABLE IF EXISTS meta.attribute_pairing_value_cache;
 CREATE TABLE meta.attribute_pairing_value_cache (
     id                  bigserial    PRIMARY KEY,
     pairing_cd          varchar(80)  NOT NULL
@@ -340,6 +348,7 @@ CREATE INDEX ix_apvc_lookup ON meta.attribute_pairing_value_cache
 -- ============================================================================
 -- meta.semantic_filter_lookup — reusable governed value sets (two-phase semi-join)
 -- ============================================================================
+DROP TABLE IF EXISTS meta.semantic_filter_lookup;
 CREATE TABLE meta.semantic_filter_lookup (
     id                          bigserial    PRIMARY KEY,
     lookup_cd                   varchar(60)  NOT NULL UNIQUE,
@@ -385,6 +394,7 @@ CREATE INDEX ix_fl_health ON meta.semantic_filter_lookup (health_status_cd);
 -- ============================================================================
 -- meta.filter_lookup_value — manual-list values with lifecycle
 -- ============================================================================
+DROP TABLE IF EXISTS meta.filter_lookup_value;
 CREATE TABLE meta.filter_lookup_value (
     id                      bigserial    PRIMARY KEY,
     lookup_cd               varchar(60)  NOT NULL
@@ -413,6 +423,7 @@ CREATE INDEX ix_flv_lookup ON meta.filter_lookup_value (lookup_cd, lifecycle_sta
 -- ============================================================================
 -- meta.filter_lookup_exec_log — Phase-1 execution audit
 -- ============================================================================
+DROP TABLE IF EXISTS meta.filter_lookup_exec_log;
 CREATE TABLE meta.filter_lookup_exec_log (
     id                       bigserial    PRIMARY KEY,
     lookup_cd                varchar(60)  NOT NULL,
@@ -433,6 +444,7 @@ CREATE INDEX ix_flxl_lookup ON meta.filter_lookup_exec_log (lookup_cd, executed_
 -- ============================================================================
 -- meta.filter_lookup_binding — where each lookup is applied
 -- ============================================================================
+DROP TABLE IF EXISTS meta.filter_lookup_binding;
 CREATE TABLE meta.filter_lookup_binding (
     id                       bigserial    PRIMARY KEY,
     lookup_cd                varchar(60)  NOT NULL
@@ -454,6 +466,7 @@ CREATE INDEX ix_flb_lookup ON meta.filter_lookup_binding (lookup_cd);
 -- ============================================================================
 -- governance.policy_preset — DB-driven governance values (NEVER hardcoded)
 -- ============================================================================
+DROP TABLE IF EXISTS governance.policy_preset;
 CREATE TABLE governance.policy_preset (
     policy_cd                       varchar(30)  PRIMARY KEY,
     policy_nm                       varchar(120) NOT NULL,
@@ -474,6 +487,7 @@ CREATE TABLE governance.policy_preset (
 -- ============================================================================
 -- wkfl.workflow_task — governance approval queue
 -- ============================================================================
+DROP TABLE IF EXISTS wkfl.workflow_task;
 CREATE TABLE wkfl.workflow_task (
     id                  bigserial    PRIMARY KEY,
     task_type_cd        varchar(40)  NOT NULL,
@@ -497,6 +511,7 @@ CREATE INDEX ix_wt_status ON wkfl.workflow_task (task_status_cd, task_type_cd);
 -- ============================================================================
 -- meta.metadata_change_history — audit trail
 -- ============================================================================
+DROP TABLE IF EXISTS meta.metadata_change_history;
 CREATE TABLE meta.metadata_change_history (
     id                  bigserial    PRIMARY KEY,
     entity_type_cd      varchar(40)  NOT NULL,
@@ -513,6 +528,7 @@ CREATE INDEX ix_mch_entity ON meta.metadata_change_history (entity_type_cd, chan
 -- ============================================================================
 -- report.report_definition — regulatory report registry
 -- ============================================================================
+DROP TABLE IF EXISTS report.report_definition;
 CREATE TABLE report.report_definition (
     id                      bigserial    PRIMARY KEY,
     report_cd               varchar(80)  NOT NULL UNIQUE,
@@ -534,6 +550,7 @@ CREATE TABLE report.report_definition (
 -- ============================================================================
 -- report.report_line_definition — line-level model (carries Taxonomy/MDRM)
 -- ============================================================================
+DROP TABLE IF EXISTS report.report_line_definition;
 CREATE TABLE report.report_line_definition (
     id                          bigserial    PRIMARY KEY,
     report_cd                   varchar(80)  NOT NULL
@@ -573,6 +590,7 @@ CREATE INDEX ix_rld_taxonomy ON report.report_line_definition (taxonomy_cd);
 -- ============================================================================
 -- ref.country — jurisdiction reference (drives taxonomy jurisdiction validation)
 -- ============================================================================
+DROP TABLE IF EXISTS ref.country;
 CREATE TABLE ref.country (
     country_cd                  varchar(3)   PRIMARY KEY,        -- ISO 3166-1 alpha-3
     country_nm                  varchar(100) NOT NULL,

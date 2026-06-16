@@ -1,357 +1,428 @@
 package com.lextr.migrationplatform;
 
+import com.lextr.migrationplatform.adapter.FlywayOperations;
+import com.lextr.migrationplatform.adapter.PostgresDatabaseAdapter;
+import com.lextr.migrationplatform.adapter.PostgresFlywayAdapter;
+import com.lextr.migrationplatform.model.MigrationTarget;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-/**
- * Conformance test for V1__semantic_layer_baseline.sql.
- * Verifies the fixed DDL contract: schemas, tables, indexes, constraints, and seeds
- * are all present and structurally correct before Flyway applies the migration.
- *
- * This is a file-level contract verification — it validates the SQL content
- * matches the fixed schema contract v2.4.0 (5 schemas, 18 tables).
- */
 class SemanticLayerBaselineMigrationTest {
 
-    private static final String MIGRATION_PATH =
-            "migrations/semantic-service/postgres/V1__semantic_layer_baseline.sql";
+    private static final String DATABASE_NAME = "semantic_baseline";
+    private static final String USERNAME = "postgres";
+    private static final String PASSWORD = "postgres";
+    private static final String HISTORY_TABLE = "flyway_history_semantic_service";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V1__semantic_layer_baseline.sql";
+    private static final List<String> MANAGED_SCHEMAS = List.of("meta", "governance", "ref", "report", "wkfl");
+    private static final List<DropCreatePair> EXPECTED_DROP_CREATE_PAIRS = List.of(
+            new DropCreatePair("DROP TABLE IF EXISTS meta.schema_catalog;", "CREATE TABLE meta.schema_catalog ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.data_connection;", "CREATE TABLE meta.data_connection ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.object_catalog;", "CREATE TABLE meta.object_catalog ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_catalog;", "CREATE TABLE meta.attribute_catalog ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.semantic_relationship_catalog;", "CREATE TABLE meta.semantic_relationship_catalog ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_logical_name_override;", "CREATE TABLE meta.attribute_logical_name_override ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_pairing_catalog;", "CREATE TABLE meta.attribute_pairing_catalog ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_pairing_value_cache;", "CREATE TABLE meta.attribute_pairing_value_cache ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.semantic_filter_lookup;", "CREATE TABLE meta.semantic_filter_lookup ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.filter_lookup_value;", "CREATE TABLE meta.filter_lookup_value ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.filter_lookup_exec_log;", "CREATE TABLE meta.filter_lookup_exec_log ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.filter_lookup_binding;", "CREATE TABLE meta.filter_lookup_binding ("),
+            new DropCreatePair("DROP TABLE IF EXISTS governance.policy_preset;", "CREATE TABLE governance.policy_preset ("),
+            new DropCreatePair("DROP TABLE IF EXISTS wkfl.workflow_task;", "CREATE TABLE wkfl.workflow_task ("),
+            new DropCreatePair("DROP TABLE IF EXISTS meta.metadata_change_history;", "CREATE TABLE meta.metadata_change_history ("),
+            new DropCreatePair("DROP TABLE IF EXISTS report.report_definition;", "CREATE TABLE report.report_definition ("),
+            new DropCreatePair("DROP TABLE IF EXISTS report.report_line_definition;", "CREATE TABLE report.report_line_definition ("),
+            new DropCreatePair("DROP TABLE IF EXISTS ref.country;", "CREATE TABLE ref.country (")
+    );
+    private static final Set<String> EXPECTED_TABLES = Set.of(
+            "governance.policy_preset",
+            "meta.attribute_catalog",
+            "meta.attribute_logical_name_override",
+            "meta.attribute_pairing_catalog",
+            "meta.attribute_pairing_value_cache",
+            "meta.data_connection",
+            "meta.filter_lookup_binding",
+            "meta.filter_lookup_exec_log",
+            "meta.filter_lookup_value",
+            "meta.metadata_change_history",
+            "meta.object_catalog",
+            "meta.schema_catalog",
+            "meta.semantic_filter_lookup",
+            "meta.semantic_relationship_catalog",
+            "ref.country",
+            "report.report_definition",
+            "report.report_line_definition",
+            "wkfl.workflow_task"
+    );
+    private static final Set<String> EXPECTED_INDEXES = Set.of(
+            "ix_ac_object",
+            "ix_ac_taxonomy",
+            "ix_apc_client",
+            "ix_apc_display",
+            "ix_apc_object",
+            "ix_apvc_lookup",
+            "ix_fl_client",
+            "ix_fl_health",
+            "ix_flb_lookup",
+            "ix_flv_lookup",
+            "ix_flxl_lookup",
+            "ix_mch_entity",
+            "ix_oc_client",
+            "ix_oc_schema",
+            "ix_oc_status",
+            "ix_rel_child",
+            "ix_rel_parent",
+            "ix_rld_report",
+            "ix_rld_taxonomy",
+            "ix_wt_status"
+    );
+    private static final Set<String> EXPECTED_CONSTRAINTS = Set.of(
+            "ck_apc_cardinality",
+            "ck_apc_diff_attrs",
+            "ck_apc_lifecycle",
+            "ck_apc_strategy",
+            "ck_apc_type",
+            "ck_attr_tax_source",
+            "ck_dc_engine",
+            "ck_fl_gov",
+            "ck_fl_strat",
+            "ck_fl_sub",
+            "ck_fl_ctype",
+            "ck_flb_ctx",
+            "ck_flv_life",
+            "ck_flxl_status",
+            "ck_lno_status",
+            "ck_ob_ai_gov",
+            "ck_ob_data_class",
+            "ck_ob_lifecycle",
+            "ck_ob_type",
+            "ck_pp_dtype",
+            "ck_rel_card",
+            "ck_rld_tax_source",
+            "ck_sc_lifecycle",
+            "ck_wt_status",
+            "fk_apc_object",
+            "fk_attr_object",
+            "fk_lno_attr",
+            "uq_apc_object_pair",
+            "uq_apvc",
+            "uq_attribute",
+            "uq_flv",
+            "uq_object",
+            "uq_rld"
+    );
+    private static final Map<String, String> EXPECTED_POLICY_DEFAULTS = Map.of(
+            "GOV-FL-001", "90",
+            "GOV-FL-002", "180",
+            "GOV-FL-003", "14",
+            "GOV-FL-004", "true",
+            "GOV-FL-005", "500",
+            "GOV-FL-006", "0.5"
+    );
+    private static final Map<String, String> EXPECTED_POLICY_TYPES = Map.of(
+            "GOV-FL-001", "INTEGER",
+            "GOV-FL-002", "INTEGER",
+            "GOV-FL-003", "INTEGER",
+            "GOV-FL-004", "BOOLEAN",
+            "GOV-FL-005", "INTEGER",
+            "GOV-FL-006", "DECIMAL"
+    );
+    private static final Map<String, ConnectionSeedExpectation> EXPECTED_CONNECTIONS = Map.of(
+            "LEXTR_CH", new ConnectionSeedExpectation("CLICKHOUSE", "ANALYTICS", false),
+            "LEXTR_NEO4J", new ConnectionSeedExpectation("NEO4J", "GRAPH", false),
+            "LEXTR_PG", new ConnectionSeedExpectation("POSTGRES", "PRIMARY", true)
+    );
+    private static final Pattern PORT_PATTERN = Pattern.compile(".*:(\\d+)$");
 
+    private static String containerName;
+    private static String jdbcUrl;
     private static String migrationSql;
 
     @BeforeAll
-    static void loadMigration() throws IOException {
-        try (InputStream is = Thread.currentThread().getContextClassLoader()
-                .getResourceAsStream(MIGRATION_PATH)) {
-            assertNotNull(is, "Migration file not found on classpath: " + MIGRATION_PATH);
-            migrationSql = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+    static void migrateBaselineIntoPostgres16() throws Exception {
+        loadMigrationSql();
+        containerName = "semantic-layer-baseline-" + UUID.randomUUID().toString().replace("-", "");
+        startPostgres16Container();
+        waitForDatabase();
+        runFlywayCleanAndMigrate();
+    }
+
+    @AfterAll
+    static void stopPostgres16Container() {
+        if (containerName == null) {
+            return;
+        }
+        try {
+            runCommand(List.of("docker", "rm", "-f", containerName), Duration.ofSeconds(30), false);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        } catch (IOException ignored) {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Migration file exists and is non-empty
-    // -----------------------------------------------------------------------
-
     @Test
-    void migrationFileExistsAndIsNonEmpty() {
-        assertNotNull(migrationSql);
-        assertFalse(migrationSql.isBlank(), "Migration SQL must not be blank");
-    }
-
-    // -----------------------------------------------------------------------
-    // 5 schemas (meta, governance, ref, report, wkfl)
-    // -----------------------------------------------------------------------
-
-    @Test
-    void allFiveSchemasCreated() {
-        List<String> schemas = List.of("meta", "governance", "ref", "report", "wkfl");
-        for (String schema : schemas) {
-            assertContains("CREATE SCHEMA IF NOT EXISTS " + schema,
-                    "Schema '" + schema + "' must be created");
+    void flywayCleanAndMigrateAppliedV1Baseline() throws SQLException {
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select version, success from meta." + HISTORY_TABLE + " where version = ?")) {
+            statement.setString(1, "1");
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next(), "Expected Flyway history entry for V1 baseline migration");
+                assertTrue(resultSet.getBoolean("success"), "V1 baseline migration must succeed");
+                assertFalse(resultSet.next(), "Expected a single Flyway history row for version 1");
+            }
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 18 tables — contract v2.4.0
-    // -----------------------------------------------------------------------
+    @Test
+    void dropStatementsExistForAllSemanticTables() {
+        for (DropCreatePair pair : EXPECTED_DROP_CREATE_PAIRS) {
+            assertTrue(
+                    migrationSql.contains(pair.dropStatement() + System.lineSeparator() + pair.createStatement()),
+                    "Missing adjacent drop/create pair: " + pair.dropStatement() + " -> " + pair.createStatement()
+            );
+        }
+    }
 
     @Test
-    void metaSchemaTablesPresent() {
-        List<String> tables = List.of(
-                "meta.schema_catalog",
-                "meta.data_connection",
-                "meta.object_catalog",
-                "meta.attribute_catalog",
-                "meta.semantic_relationship_catalog",
-                "meta.attribute_logical_name_override",
-                "meta.attribute_pairing_catalog",
-                "meta.attribute_pairing_value_cache",
-                "meta.semantic_filter_lookup",
-                "meta.filter_lookup_value",
-                "meta.filter_lookup_exec_log",
-                "meta.filter_lookup_binding",
-                "meta.metadata_change_history"
+    void allExpectedTablesExist() throws SQLException {
+        String sql = """
+                select table_schema || '.' || table_name as qualified_name
+                from information_schema.tables
+                where table_schema in ('meta', 'governance', 'ref', 'report', 'wkfl')
+                  and table_type = 'BASE TABLE'
+                  and table_name <> ?
+                order by qualified_name
+                """;
+        Set<String> actualTables = new LinkedHashSet<>();
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, HISTORY_TABLE);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    actualTables.add(resultSet.getString("qualified_name"));
+                }
+            }
+        }
+        assertEquals(EXPECTED_TABLES, actualTables, "Baseline migration must create the fixed 18 semantic-layer tables");
+    }
+
+    @Test
+    void allExpectedIndexesExist() throws SQLException {
+        String sql = """
+                select indexname
+                from pg_indexes
+                where schemaname in ('meta', 'governance', 'ref', 'report', 'wkfl')
+                """;
+        Set<String> actualIndexes = querySingleColumnSet(sql, "indexname");
+        assertTrue(actualIndexes.containsAll(EXPECTED_INDEXES),
+                "Baseline migration is missing required indexes: " + difference(EXPECTED_INDEXES, actualIndexes));
+    }
+
+    @Test
+    void allExpectedNamedConstraintsExist() throws SQLException {
+        String sql = """
+                select constraint_name
+                from information_schema.table_constraints
+                where table_schema in ('meta', 'governance', 'ref', 'report', 'wkfl')
+                """;
+        Set<String> actualConstraints = querySingleColumnSet(sql, "constraint_name");
+        assertTrue(actualConstraints.containsAll(EXPECTED_CONSTRAINTS),
+                "Baseline migration is missing required constraints: " + difference(EXPECTED_CONSTRAINTS, actualConstraints));
+    }
+
+    @Test
+    void sixGovernancePresetsSeeded() throws SQLException {
+        Map<String, String> defaultValues = new LinkedHashMap<>();
+        Map<String, String> dataTypes = new LinkedHashMap<>();
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select policy_cd, default_value_txt, data_type_cd from governance.policy_preset where policy_cd like 'GOV-FL-%' order by policy_cd");
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                defaultValues.put(resultSet.getString("policy_cd"), resultSet.getString("default_value_txt"));
+                dataTypes.put(resultSet.getString("policy_cd"), resultSet.getString("data_type_cd"));
+            }
+        }
+
+        assertEquals(6, defaultValues.size(), "Expected 6 seeded governance presets");
+        assertEquals(EXPECTED_POLICY_DEFAULTS, defaultValues, "Unexpected governance preset defaults");
+        assertEquals(EXPECTED_POLICY_TYPES, dataTypes, "Unexpected governance preset data types");
+    }
+
+    @Test
+    void postgresClickhouseAndNeo4jConnectionsSeeded() throws SQLException {
+        Map<String, ConnectionSeedExpectation> actualConnections = new LinkedHashMap<>();
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select connection_cd, engine_cd, connection_type_cd, is_default_flg from meta.data_connection order by connection_cd");
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                actualConnections.put(
+                        resultSet.getString("connection_cd"),
+                        new ConnectionSeedExpectation(
+                                resultSet.getString("engine_cd"),
+                                resultSet.getString("connection_type_cd"),
+                                resultSet.getBoolean("is_default_flg"))
+                );
+            }
+        }
+
+        assertEquals(EXPECTED_CONNECTIONS, actualConnections, "Unexpected seeded connection registry rows");
+    }
+
+    private static void startPostgres16Container() throws Exception {
+        CommandResult result = runCommand(List.of(
+                "docker",
+                "run",
+                "--rm",
+                "-d",
+                "--name",
+                containerName,
+                "-e",
+                "POSTGRES_DB=" + DATABASE_NAME,
+                "-e",
+                "POSTGRES_USER=" + USERNAME,
+                "-e",
+                "POSTGRES_PASSWORD=" + PASSWORD,
+                "-P",
+                "postgres:16"
+        ), Duration.ofMinutes(5), true);
+        assertEquals(0, result.exitCode(), "Failed to start PostgreSQL 16 container: " + result.output());
+
+        CommandResult portResult = runCommand(
+                List.of("docker", "port", containerName, "5432/tcp"),
+                Duration.ofSeconds(30),
+                true
         );
-        for (String table : tables) {
-            assertContains("CREATE TABLE " + table,
-                    "Table '" + table + "' must be present");
+        assertEquals(0, portResult.exitCode(), "Failed to resolve PostgreSQL port: " + portResult.output());
+        jdbcUrl = "jdbc:postgresql://127.0.0.1:" + extractPort(portResult.output()) + "/" + DATABASE_NAME;
+    }
+
+    private static void waitForDatabase() throws Exception {
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(60));
+        SQLException lastFailure = null;
+        while (Instant.now().isBefore(deadline)) {
+            try (Connection ignored = openConnection()) {
+                return;
+            } catch (SQLException exception) {
+                lastFailure = exception;
+                Thread.sleep(1_000L);
+            }
+        }
+        throw new IllegalStateException("PostgreSQL 16 container never became ready", lastFailure);
+    }
+
+    private static void runFlywayCleanAndMigrate() {
+        FlywayOperations flyway = new PostgresFlywayAdapter(new PostgresDatabaseAdapter()).create(new MigrationTarget(
+                "test",
+                "semantic-service",
+                "postgres16-baseline",
+                "postgres",
+                jdbcUrl,
+                USERNAME,
+                PASSWORD,
+                "org.postgresql.Driver",
+                List.of("classpath:migrations/semantic-service/postgres"),
+                MANAGED_SCHEMAS,
+                true,
+                "0",
+                false,
+                HISTORY_TABLE,
+                Map.of()
+        ));
+        flyway.clean();
+        flyway.migrate();
+    }
+
+    private static void loadMigrationSql() throws IOException {
+        try (InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(MIGRATION_PATH)) {
+            if (inputStream == null) {
+                fail("Migration file not found on classpath: " + MIGRATION_PATH);
+            }
+            migrationSql = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
-    @Test
-    void governanceSchemaTablesPresent() {
-        assertContains("CREATE TABLE governance.policy_preset",
-                "Table 'governance.policy_preset' must be present");
+    private static Connection openConnection() throws SQLException {
+        return DriverManager.getConnection(jdbcUrl, USERNAME, PASSWORD);
     }
 
-    @Test
-    void workflowSchemaTablesPresent() {
-        assertContains("CREATE TABLE wkfl.workflow_task",
-                "Table 'wkfl.workflow_task' must be present");
+    private static Set<String> querySingleColumnSet(String sql, String columnLabel) throws SQLException {
+        Set<String> values = new LinkedHashSet<>();
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                values.add(resultSet.getString(columnLabel));
+            }
+        }
+        return values;
     }
 
-    @Test
-    void reportSchemaTablesPresent() {
-        assertContains("CREATE TABLE report.report_definition",
-                "Table 'report.report_definition' must be present");
-        assertContains("CREATE TABLE report.report_line_definition",
-                "Table 'report.report_line_definition' must be present");
+    private static Set<String> difference(Set<String> expected, Set<String> actual) {
+        Set<String> difference = new LinkedHashSet<>(expected);
+        difference.removeAll(actual);
+        return difference;
     }
 
-    @Test
-    void refSchemaTablesPresent() {
-        assertContains("CREATE TABLE ref.country",
-                "Table 'ref.country' must be present");
+    private static int extractPort(String dockerPortOutput) {
+        Matcher matcher = PORT_PATTERN.matcher(dockerPortOutput.trim());
+        if (!matcher.find()) {
+            fail("Unable to parse mapped PostgreSQL port from: " + dockerPortOutput);
+        }
+        return Integer.parseInt(matcher.group(1));
     }
 
-    @Test
-    void totalTableCountIs18() {
-        // Count all CREATE TABLE statements (excluding CREATE TABLE IF NOT EXISTS which is for schemas)
-        long count = migrationSql.lines()
-                .map(String::trim)
-                .filter(line -> line.startsWith("CREATE TABLE "))
-                .count();
-        assertTrue(count == 18,
-                "Expected 18 CREATE TABLE statements, found " + count);
+    private static CommandResult runCommand(List<String> command, Duration timeout, boolean failOnNonZero)
+            throws IOException, InterruptedException {
+        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+        boolean completed = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        if (!completed) {
+            process.destroyForcibly();
+            fail("Command timed out: " + String.join(" ", command));
+        }
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+        CommandResult result = new CommandResult(process.exitValue(), output);
+        if (failOnNonZero && result.exitCode() != 0) {
+            fail("Command failed: " + String.join(" ", command) + System.lineSeparator() + output);
+        }
+        return result;
     }
 
-    // -----------------------------------------------------------------------
-    // Indexes — all required indexes present
-    // -----------------------------------------------------------------------
-
-    @Test
-    void objectCatalogIndexesPresent() {
-        assertContains("CREATE INDEX ix_oc_schema", "Index ix_oc_schema missing");
-        assertContains("CREATE INDEX ix_oc_client", "Index ix_oc_client missing");
-        assertContains("CREATE INDEX ix_oc_status", "Index ix_oc_status missing");
+    private record ConnectionSeedExpectation(String engineCode, String connectionTypeCode, boolean defaultFlag) {
     }
 
-    @Test
-    void attributeCatalogIndexesPresent() {
-        assertContains("CREATE INDEX ix_ac_object", "Index ix_ac_object missing");
-        assertContains("CREATE INDEX ix_ac_taxonomy", "Index ix_ac_taxonomy missing");
+    private record DropCreatePair(String dropStatement, String createStatement) {
     }
 
-    @Test
-    void relationshipCatalogIndexesPresent() {
-        assertContains("CREATE INDEX ix_rel_parent", "Index ix_rel_parent missing");
-        assertContains("CREATE INDEX ix_rel_child", "Index ix_rel_child missing");
-    }
-
-    @Test
-    void attributePairingIndexesPresent() {
-        assertContains("CREATE INDEX ix_apc_object", "Index ix_apc_object missing");
-        assertContains("CREATE INDEX ix_apc_display", "Index ix_apc_display missing");
-        assertContains("CREATE INDEX ix_apc_client", "Index ix_apc_client missing");
-    }
-
-    @Test
-    void pairingValueCacheIndexPresent() {
-        assertContains("CREATE INDEX ix_apvc_lookup", "Index ix_apvc_lookup missing");
-    }
-
-    @Test
-    void filterLookupIndexesPresent() {
-        assertContains("CREATE INDEX ix_fl_client", "Index ix_fl_client missing");
-        assertContains("CREATE INDEX ix_fl_health", "Index ix_fl_health missing");
-    }
-
-    @Test
-    void filterLookupValueIndexPresent() {
-        assertContains("CREATE INDEX ix_flv_lookup", "Index ix_flv_lookup missing");
-    }
-
-    @Test
-    void filterLookupExecLogIndexPresent() {
-        assertContains("CREATE INDEX ix_flxl_lookup", "Index ix_flxl_lookup missing");
-    }
-
-    @Test
-    void filterLookupBindingIndexPresent() {
-        assertContains("CREATE INDEX ix_flb_lookup", "Index ix_flb_lookup missing");
-    }
-
-    @Test
-    void workflowTaskIndexPresent() {
-        assertContains("CREATE INDEX ix_wt_status", "Index ix_wt_status missing");
-    }
-
-    @Test
-    void metadataChangeHistoryIndexPresent() {
-        assertContains("CREATE INDEX ix_mch_entity", "Index ix_mch_entity missing");
-    }
-
-    @Test
-    void reportDefinitionIndexesPresent() {
-        assertContains("CREATE INDEX ix_rld_report", "Index ix_rld_report missing");
-        assertContains("CREATE INDEX ix_rld_taxonomy", "Index ix_rld_taxonomy missing");
-    }
-
-    // -----------------------------------------------------------------------
-    // SEED — 6 GOV-FL governance presets (GOV-FL-001..006)
-    // -----------------------------------------------------------------------
-
-    @Test
-    void sixGovernancePresetsSeeded() {
-        assertContains("GOV-FL-001", "Governance preset GOV-FL-001 not seeded");
-        assertContains("GOV-FL-002", "Governance preset GOV-FL-002 not seeded");
-        assertContains("GOV-FL-003", "Governance preset GOV-FL-003 not seeded");
-        assertContains("GOV-FL-004", "Governance preset GOV-FL-004 not seeded");
-        assertContains("GOV-FL-005", "Governance preset GOV-FL-005 not seeded");
-        assertContains("GOV-FL-006", "Governance preset GOV-FL-006 not seeded");
-    }
-
-    @Test
-    void governancePresetInsertIsIdempotent() {
-        // The seed uses ON CONFLICT DO NOTHING to support re-runnable baseline
-        assertContains("ON CONFLICT (policy_cd) DO NOTHING",
-                "Governance preset INSERT must use ON CONFLICT DO NOTHING for idempotency");
-    }
-
-    // -----------------------------------------------------------------------
-    // SEED — 3 data connections (PG, CH, Neo4j)
-    // -----------------------------------------------------------------------
-
-    @Test
-    void threeDataConnectionsSeeded() {
-        assertContains("LEXTR_PG", "PostgreSQL connection seed missing");
-        assertContains("LEXTR_CH", "ClickHouse connection seed missing");
-        assertContains("LEXTR_NEO4J", "Neo4j connection seed missing");
-    }
-
-    @Test
-    void dataConnectionEnginesCorrect() {
-        assertContains("'POSTGRES','PRIMARY'", "LEXTR_PG must be POSTGRES / PRIMARY");
-        assertContains("'CLICKHOUSE','ANALYTICS'", "LEXTR_CH must be CLICKHOUSE / ANALYTICS");
-        assertContains("'NEO4J','GRAPH'", "LEXTR_NEO4J must be NEO4J / GRAPH");
-    }
-
-    @Test
-    void dataConnectionInsertIsIdempotent() {
-        assertContains("ON CONFLICT (connection_id) DO NOTHING",
-                "Data connection INSERT must use ON CONFLICT DO NOTHING for idempotency");
-    }
-
-    // -----------------------------------------------------------------------
-    // Constraints — spot-check key CHECK constraints
-    // -----------------------------------------------------------------------
-
-    @Test
-    void lifecycleCheckConstraintsPresent() {
-        assertContains("ck_sc_lifecycle", "Schema catalog lifecycle CHECK missing");
-        assertContains("ck_ob_lifecycle", "Object catalog lifecycle CHECK missing");
-        assertContains("ck_apc_lifecycle", "Attribute pairing lifecycle CHECK missing");
-    }
-
-    @Test
-    void objectTypeCheckPresent() {
-        assertContains("ck_ob_type", "Object type CHECK missing");
-    }
-
-    @Test
-    void dataClassificationCheckPresent() {
-        assertContains("ck_ob_data_class", "Data classification CHECK missing");
-    }
-
-    @Test
-    void aiGovernanceCheckPresent() {
-        assertContains("ck_ob_ai_gov", "AI governance CHECK missing");
-    }
-
-    @Test
-    void engineCheckPresent() {
-        assertContains("ck_dc_engine", "Data connection engine CHECK missing");
-    }
-
-    @Test
-    void taxonomySourceCheckPresent() {
-        assertContains("ck_attr_tax_source", "Attribute taxonomy_source CHECK missing");
-        assertContains("ck_rld_tax_source", "Report line taxonomy_source CHECK missing");
-    }
-
-    @Test
-    void attributePairingConstraintsPresent() {
-        assertContains("ck_apc_type", "Pairing type CHECK missing");
-        assertContains("ck_apc_strategy", "Pairing strategy CHECK missing");
-        assertContains("ck_apc_cardinality", "Pairing cardinality CHECK missing");
-        assertContains("ck_apc_diff_attrs", "display != filter attribute CHECK missing");
-    }
-
-    // -----------------------------------------------------------------------
-    // Unique constraints
-    // -----------------------------------------------------------------------
-
-    @Test
-    void uniqueConstraintsPresent() {
-        assertContains("uq_object", "Unique constraint on object_catalog missing");
-        assertContains("uq_attribute", "Unique constraint on attribute_catalog missing");
-        assertContains("uq_apc_object_pair", "Unique constraint on attribute_pairing_catalog missing");
-        assertContains("uq_apvc", "Unique constraint on pairing_value_cache missing");
-        assertContains("uq_flv", "Unique constraint on filter_lookup_value missing");
-        assertContains("uq_rld", "Unique constraint on report_line_definition missing");
-    }
-
-    // -----------------------------------------------------------------------
-    // Foreign keys — spot-check critical FK relationships
-    // -----------------------------------------------------------------------
-
-    @Test
-    void foreignKeysPresent() {
-        assertContains("fk_attr_object", "FK from attribute_catalog to object_catalog missing");
-        assertContains("fk_lno_attr", "FK from logical_name_override to attribute_catalog missing");
-        assertContains("fk_apc_object", "FK from pairing_catalog to object_catalog missing");
-    }
-
-    // -----------------------------------------------------------------------
-    // Tenancy key — client_id present on tenant-scoped tables
-    // -----------------------------------------------------------------------
-
-    @Test
-    void clientIdPresentOnTenantScopedTables() {
-        // Spot-check key tenant-scoped tables
-        assertTrue(migrationSql.contains("client_id"),
-                "client_id tenancy key must be present in the DDL");
-    }
-
-    // -----------------------------------------------------------------------
-    // Standards conformance — must-have audit columns
-    // -----------------------------------------------------------------------
-
-    @Test
-    void createdTsAndCreatedByAreStandard() {
-        // Every table must carry created_ts and created_by per standards.
-        // Some tables use domain-specific variants (added_ts, requested_ts,
-        // cached_ts, executed_ts) which satisfy the "creation audit" standard.
-        long createdTsCount = migrationSql.lines()
-                .map(String::trim)
-                .filter(line -> line.startsWith("created_ts"))
-                .count();
-        long createdByCount = migrationSql.lines()
-                .map(String::trim)
-                .filter(line -> line.startsWith("created_by"))
-                .count();
-        // 11 tables use created_ts/created_by directly; others use domain-specific
-        // creation columns (added_ts/added_by, requested_ts/requested_by,
-        // cached_ts, executed_ts/executed_by) per the fixed DDL contract.
-        assertTrue(createdTsCount >= 11,
-                "Expected created_ts on core tables, found " + createdTsCount);
-        assertTrue(createdByCount >= 11,
-                "Expected created_by on core tables, found " + createdByCount);
-    }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
-
-    private static void assertContains(String expected, String message) {
-        assertTrue(migrationSql.contains(expected), message + " — expected to find: " + expected);
+    private record CommandResult(int exitCode, String output) {
     }
 }
