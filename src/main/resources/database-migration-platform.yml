@@ -4,8 +4,8 @@ targets:
   postgres-main-dev:
     type: postgres
     environment: dev
-    url: jdbc:postgresql://localhost:5434/lextr
-    username: postgres
+    url: jdbc:postgresql://localhost:5433/lextr
+    username: lextr_user
     passwordEnv: LEXTR_POSTGRES_PASSWORD
     schemas:
       - meta

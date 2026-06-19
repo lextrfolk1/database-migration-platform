@@ -57,6 +57,7 @@ CREATE TABLE meta.schema_catalog (
     schema_cd            varchar(30)  PRIMARY KEY,
     schema_nm            varchar(100) NOT NULL,
     schema_purpose_txt   text,
+    client_id            varchar(40),
     lifecycle_status_cd  varchar(30)  NOT NULL DEFAULT 'ACTIVE',
     created_ts           timestamptz  NOT NULL DEFAULT now(),
     created_by           varchar(100) NOT NULL DEFAULT current_user,
@@ -65,6 +66,7 @@ CREATE TABLE meta.schema_catalog (
     CONSTRAINT ck_sc_lifecycle CHECK (lifecycle_status_cd IN
         ('DRAFT','REVIEW','APPROVED','ACTIVE','DEPRECATED','RETIRED'))
 );
+CREATE INDEX ix_sc_client ON meta.schema_catalog (client_id);
 
 -- ============================================================================
 -- meta.data_connection — connection registry (per-object engine routing)
@@ -84,12 +86,14 @@ CREATE TABLE meta.data_connection (
     is_default_flg       boolean      NOT NULL DEFAULT false,
     is_active_flg        boolean      NOT NULL DEFAULT true,
     secrets_ref          varchar(200),                   -- Vault/KMS key reference only
+    client_id            varchar(40),
     created_ts           timestamptz  NOT NULL DEFAULT now(),
     created_by           varchar(100) NOT NULL DEFAULT current_user,
     updated_ts           timestamptz,
     updated_by           varchar(100),
     CONSTRAINT ck_dc_engine CHECK (engine_cd IN ('POSTGRES','CLICKHOUSE','NEO4J'))
 );
+CREATE INDEX ix_dc_client ON meta.data_connection (client_id);
 
 -- ============================================================================
 -- meta.object_catalog — registered semantic objects
@@ -619,10 +623,10 @@ ON CONFLICT (policy_cd) DO NOTHING;
 -- SEED — connection registry (PostgreSQL primary, ClickHouse analytics, Neo4j graph)
 -- ============================================================================
 INSERT INTO meta.data_connection
-  (connection_id, connection_cd, connection_nm, engine_cd, connection_type_cd, is_default_flg) VALUES
- ('00000000-0000-0000-0000-000000000001','LEXTR_PG','Lextr PostgreSQL','POSTGRES','PRIMARY',true),
- ('00000000-0000-0000-0000-000000000002','LEXTR_CH','Lextr ClickHouse','CLICKHOUSE','ANALYTICS',false),
- ('00000000-0000-0000-0000-000000000003','LEXTR_NEO4J','Lextr Neo4j Graph','NEO4J','GRAPH',false)
+  (connection_id, connection_cd, connection_nm, engine_cd, connection_type_cd, is_default_flg, client_id) VALUES
+ ('00000000-0000-0000-0000-000000000001','LEXTR_PG','Lextr PostgreSQL','POSTGRES','PRIMARY',true,'GLOBAL'),
+ ('00000000-0000-0000-0000-000000000002','LEXTR_CH','Lextr ClickHouse','CLICKHOUSE','ANALYTICS',false,'GLOBAL'),
+ ('00000000-0000-0000-0000-000000000003','LEXTR_NEO4J','Lextr Neo4j Graph','NEO4J','GRAPH',false,'GLOBAL')
 ON CONFLICT (connection_id) DO NOTHING;
 
 -- =============================================================================
