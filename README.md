@@ -178,7 +178,12 @@ Example run request:
 
 ## CLI
 
-The repo includes a `migration` wrapper script at the project root. It runs the packaged JAR when available and falls back to `spring-boot:run` during development.
+The repo includes wrapper scripts at the project root that run the packaged JAR when available and fall back to `spring-boot:run` during development.
+
+| OS | CLI Script | Start Server | Stop Server |
+|---|---|---|---|
+| Linux / macOS | `./migration` | `./scripts/start.sh` | `./scripts/stop.sh` |
+| Windows | `migration.cmd` | `scripts\start.cmd` | `scripts\stop.cmd` |
 
 When a recognized CLI command is the first argument, the application boots **without a web server**, executes the command, prints JSON to stdout, and exits. Without a recognized command, it starts the full web server on port `8049`.
 
@@ -480,19 +485,43 @@ All commands return structured JSON. Example output from `./migration plan`:
 ### Run tests
 
 ```bash
+# Linux / macOS
 ./mvnw test
+
+# Windows
+mvnw.cmd test
 ```
 
 ### Run locally with Spring Boot
 
 ```bash
+# Linux / macOS
 ./mvnw spring-boot:run
+
+# Windows
+mvnw.cmd spring-boot:run
 ```
 
 ### Run with the wrapper
 
 ```bash
+# Linux / macOS
 ./migration inventory
+
+# Windows
+migration.cmd inventory
+```
+
+### Start the API server
+
+```bash
+# Linux / macOS
+./scripts/start.sh
+./scripts/stop.sh
+
+# Windows
+scripts\start.cmd
+scripts\stop.cmd
 ```
 
 ### Start local dependencies
@@ -522,6 +551,9 @@ docker compose up --build
 - `src/main/resources/migrations/**`
 - `docs/architecture.md`
 - `docs/usage.md`
-- `migration`
+- `migration` — CLI entry point (Linux / macOS)
+- `migration.cmd` — CLI entry point (Windows)
+- `scripts/start.sh` / `scripts/start.cmd` — start the API server
+- `scripts/stop.sh` / `scripts/stop.cmd` — stop the API server
 - `docker-compose.yml`
 - `Dockerfile`
