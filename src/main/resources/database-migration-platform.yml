@@ -20,7 +20,7 @@ targets:
     environment: dev
     url: jdbc:clickhouse://localhost:8123/default
     username: default
-    password: ""
+    passwordEnv: LEXTR_CLICKHOUSE_PASSWORD
     baselineOnMigrate: false
     baselineVersion: "0"
     cleanDisabled: true

@@ -1,16 +1,9 @@
 name: database-migration-platform
 
-services:
-  postgres:
-    image: postgres:16
-    container_name: database-migration-platform-postgres
-    environment:
-      POSTGRES_DB: lextr
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin
-    ports:
-      - "5434:5432"
+# Starts the ClickHouse dependency for local development.
+# PostgreSQL and the migration-platform app run outside Docker.
 
+services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
     container_name: database-migration-platform-clickhouse
@@ -21,17 +14,3 @@ services:
     ports:
       - "8123:8123"
       - "9000:9000"
-
-  database-migration-platform:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: database-migration-platform-app
-    depends_on:
-      - postgres
-      - clickhouse
-    environment:
-      LEXTR_POSTGRES_PASSWORD: admin
-      LEXTR_CLICKHOUSE_PASSWORD: ""
-    ports:
-      - "8049:8049"
