@@ -7,6 +7,7 @@ import com.lextr.migrationplatform.model.MigrationTarget;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -165,9 +166,20 @@ class SemanticLayerBaselineMigrationTest {
     private static String jdbcUrl;
     private static String migrationSql;
 
+    private static boolean isDockerRunning() {
+        try {
+            Process process = new ProcessBuilder("docker", "info").start();
+            boolean completed = process.waitFor(5, TimeUnit.SECONDS);
+            return completed && process.exitValue() == 0;
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
     @BeforeAll
     static void migrateBaselineIntoPostgres16() throws Exception {
         loadMigrationSql();
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         containerName = "semantic-layer-baseline-" + UUID.randomUUID().toString().replace("-", "");
         startPostgres16Container();
         waitForDatabase();
