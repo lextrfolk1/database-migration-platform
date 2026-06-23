@@ -31,13 +31,13 @@ services:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - classpath:migrations/generic-service/postgres
+          - filesystem:src/main/resources/migrations/generic-service/postgres
       - target: clickhouse-analytics-dev
         locations:
-          - classpath:migrations/generic-service/clickhouse
+          - filesystem:src/main/resources/migrations/generic-service/clickhouse
 
   semantic-service:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - classpath:migrations/semantic-service/postgres
+          - filesystem:src/main/resources/migrations/semantic-service/postgres

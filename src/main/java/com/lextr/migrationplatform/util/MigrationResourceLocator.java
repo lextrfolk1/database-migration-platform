@@ -20,6 +20,8 @@ public class MigrationResourceLocator {
         String normalized = location.endsWith("/") ? location + "*.sql" : location + "/*.sql";
         if (normalized.startsWith("classpath:")) {
             normalized = "classpath*:" + normalized.substring("classpath:".length());
+        } else if (normalized.startsWith("filesystem:")) {
+            normalized = "file:" + normalized.substring("filesystem:".length());
         }
         try {
             return Arrays.stream(resolver.getResources(normalized))
