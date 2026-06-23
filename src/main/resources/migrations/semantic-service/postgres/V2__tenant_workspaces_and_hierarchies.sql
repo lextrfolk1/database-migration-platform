@@ -74,40 +74,4 @@ CREATE TABLE IF NOT EXISTS meta.logical_hierarchy_level (
 );
 CREATE INDEX IF NOT EXISTS ix_lhl_hierarchy ON meta.logical_hierarchy_level (hierarchy_cd);
 
--- ============================================================================
--- SEED — workspaces (matching previous catalogConfig.ts TENANT_WORKSPACES)
--- ============================================================================
-INSERT INTO meta.tenant_workspace (workspace_cd, tenant_cd, workspace_nm, workspace_desc, workspace_status_cd, created_by)
-VALUES
-    ('WS-ALL',   'GLOBAL',   'ALL (Global)',                      'Default global workspace — all tenants see these objects',                                     'ACTIVE', 'system'),
-    ('WS-BHC-A', 'BHC_A001', 'BHC_A001 — Bank Holding Co Alpha', 'Tenant-specific workspace for BHC Alpha. Includes full GL scope plus customer master.',        'ACTIVE', 's.patel'),
-    ('WS-BHC-B', 'BHC_B002', 'BHC_B002 — Bank Holding Co Beta',  'Beta tenant workspace. Restricted to organisation and period reference data pending onboarding.','REVIEW', 'j.chen')
-ON CONFLICT (workspace_cd) DO NOTHING;
 
--- SEED — workspace objects
-INSERT INTO meta.workspace_object (workspace_cd, schema_cd, object_cd, added_by) VALUES
-    ('WS-ALL',   'core', 'gl_balance',              'system'),
-    ('WS-ALL',   'ref',  'organization_hierarchy',  'system'),
-    ('WS-ALL',   'ref',  'fiscal_period',           'system'),
-    ('WS-BHC-A', 'core', 'gl_balance',              's.patel'),
-    ('WS-BHC-A', 'core', 'customer_master',         's.patel'),
-    ('WS-BHC-A', 'ref',  'organization_hierarchy',  's.patel'),
-    ('WS-BHC-A', 'ref',  'fiscal_period',           's.patel'),
-    ('WS-BHC-B', 'ref',  'organization_hierarchy',  'j.chen'),
-    ('WS-BHC-B', 'ref',  'fiscal_period',           'j.chen')
-ON CONFLICT (workspace_cd, schema_cd, object_cd) DO NOTHING;
-
--- SEED — hierarchies (matching previous catalogConfig.ts HIERARCHIES)
-INSERT INTO meta.logical_hierarchy (hierarchy_cd, hierarchy_nm, tenant_cd, hierarchy_status_cd, created_by) VALUES
-    ('ENTITY_HIERARCHY', 'Legal Entity Hierarchy',  'GLOBAL', 'ACTIVE', 'system'),
-    ('PERIOD_HIERARCHY', 'Fiscal Period Hierarchy',  'GLOBAL', 'ACTIVE', 'system')
-ON CONFLICT (hierarchy_cd) DO NOTHING;
-
--- SEED — hierarchy levels
-INSERT INTO meta.logical_hierarchy_level (hierarchy_cd, level_nbr, level_label, attribute_cd, code_cd, object_ref) VALUES
-    ('ENTITY_HIERARCHY', 1, 'Bank Holding Company', 'org_node_nm', 'org_node_cd', 'ref.organization_hierarchy'),
-    ('ENTITY_HIERARCHY', 2, 'Bank / Subsidiary',    'org_node_nm', 'org_node_cd', 'ref.organization_hierarchy'),
-    ('ENTITY_HIERARCHY', 3, 'Division / Region',    'org_node_nm', 'org_node_cd', 'ref.organization_hierarchy'),
-    ('PERIOD_HIERARCHY', 1, 'Fiscal Year',          'fiscal_year_nbr', 'fiscal_year_nbr', 'ref.fiscal_period'),
-    ('PERIOD_HIERARCHY', 2, 'Fiscal Period',        'period_cd',       'period_cd',       'ref.fiscal_period')
-ON CONFLICT (hierarchy_cd, level_nbr) DO NOTHING;
