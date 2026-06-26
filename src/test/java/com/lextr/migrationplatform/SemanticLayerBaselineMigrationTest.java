@@ -271,6 +271,12 @@ class SemanticLayerBaselineMigrationTest {
     }
 
     @Test
+    void filterLookupBindingConstraintAllowsQueryStudioBindingContext() {
+        assertTrue(migrationSql.contains("CONSTRAINT ck_flb_ctx CHECK (binding_context_cd IN"));
+        assertTrue(migrationSql.contains("('RULE','QUERY_STUDIO','PIPELINE','LEXIE')"));
+    }
+
+    @Test
     void sixGovernancePresetsSeeded() throws SQLException {
         Map<String, String> defaultValues = new LinkedHashMap<>();
         Map<String, String> dataTypes = new LinkedHashMap<>();
