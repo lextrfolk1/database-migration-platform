@@ -26,9 +26,9 @@ CREATE INDEX IF NOT EXISTS ix_tw_tenant ON meta.tenant_workspace (tenant_cd);
 CREATE INDEX IF NOT EXISTS ix_tw_status ON meta.tenant_workspace (workspace_status_cd);
 
 -- ============================================================================
--- meta.workspace_object — maps registered objects to workspace directories
+-- meta.tenant_workspace_object — maps registered objects to workspace directories
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS meta.workspace_object (
+CREATE TABLE IF NOT EXISTS meta.tenant_workspace_object (
     id                   bigserial    PRIMARY KEY,
     workspace_cd         varchar(60)  NOT NULL
         REFERENCES meta.tenant_workspace (workspace_cd) ON DELETE CASCADE,
@@ -36,9 +36,9 @@ CREATE TABLE IF NOT EXISTS meta.workspace_object (
     object_cd            varchar(50)  NOT NULL,
     added_by             varchar(100) NOT NULL DEFAULT current_user,
     added_ts             timestamptz  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_wo UNIQUE (workspace_cd, schema_cd, object_cd)
+    CONSTRAINT uq_two UNIQUE (workspace_cd, schema_cd, object_cd)
 );
-CREATE INDEX IF NOT EXISTS ix_wo_workspace ON meta.workspace_object (workspace_cd);
+CREATE INDEX IF NOT EXISTS ix_two_workspace ON meta.tenant_workspace_object (workspace_cd);
 
 -- ============================================================================
 -- meta.logical_hierarchy — hierarchy descriptors
