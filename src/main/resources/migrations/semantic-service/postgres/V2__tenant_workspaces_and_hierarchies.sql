@@ -8,6 +8,8 @@
 -- ============================================================================
 -- meta.tenant_workspace — tenant workspace descriptors
 -- ============================================================================
+DROP TABLE IF EXISTS meta.tenant_workspace CASCADE;
+
 CREATE TABLE IF NOT EXISTS meta.tenant_workspace (
     id                   bigserial    PRIMARY KEY,
     workspace_cd         varchar(60)  NOT NULL UNIQUE,
@@ -28,6 +30,8 @@ CREATE INDEX IF NOT EXISTS ix_tw_status ON meta.tenant_workspace (workspace_stat
 -- ============================================================================
 -- meta.tenant_workspace_object — maps registered objects to workspace directories
 -- ============================================================================
+DROP TABLE IF EXISTS meta.tenant_workspace_object CASCADE;
+
 CREATE TABLE IF NOT EXISTS meta.tenant_workspace_object (
     id                   bigserial    PRIMARY KEY,
     workspace_cd         varchar(60)  NOT NULL
@@ -43,6 +47,8 @@ CREATE INDEX IF NOT EXISTS ix_two_workspace ON meta.tenant_workspace_object (wor
 -- ============================================================================
 -- meta.logical_hierarchy — hierarchy descriptors
 -- ============================================================================
+DROP TABLE IF EXISTS meta.logical_hierarchy CASCADE;
+
 CREATE TABLE IF NOT EXISTS meta.logical_hierarchy (
     id                   bigserial    PRIMARY KEY,
     hierarchy_cd         varchar(60)  NOT NULL UNIQUE,
@@ -61,6 +67,8 @@ CREATE INDEX IF NOT EXISTS ix_lh_tenant ON meta.logical_hierarchy (tenant_cd);
 -- ============================================================================
 -- meta.logical_hierarchy_level — multilevel attribute steps per hierarchy
 -- ============================================================================
+DROP TABLE IF EXISTS meta.logical_hierarchy_level CASCADE;
+
 CREATE TABLE IF NOT EXISTS meta.logical_hierarchy_level (
     id                   bigserial    PRIMARY KEY,
     hierarchy_cd         varchar(60)  NOT NULL
