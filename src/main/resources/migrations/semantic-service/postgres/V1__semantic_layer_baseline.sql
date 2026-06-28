@@ -156,6 +156,7 @@ CREATE INDEX ix_oc_status   ON meta.object_catalog (lifecycle_status_cd);
 DROP TABLE IF EXISTS meta.attribute_catalog;
 CREATE TABLE meta.attribute_catalog (
     id                          bigserial    PRIMARY KEY,
+    client_id                   varchar(40)  NOT NULL,
     schema_cd                   varchar(30)  NOT NULL,
     object_cd                   varchar(50)  NOT NULL,
     attribute_cd                varchar(32)  NOT NULL,
@@ -206,6 +207,7 @@ CREATE TABLE meta.attribute_catalog (
     --           in OPA at registration, NOT as a DB CHECK, because the rule is
     --           jurisdictional/business policy and policy is externalized. Confirm.
 );
+CREATE INDEX ix_ac_client   ON meta.attribute_catalog (client_id);
 CREATE INDEX ix_ac_object   ON meta.attribute_catalog (schema_cd, object_cd);
 CREATE INDEX ix_ac_taxonomy ON meta.attribute_catalog (taxonomy_cd);
 
