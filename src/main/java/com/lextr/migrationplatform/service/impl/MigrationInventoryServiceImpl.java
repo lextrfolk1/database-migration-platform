@@ -115,7 +115,7 @@ public class MigrationInventoryServiceImpl implements MigrationInventoryService 
                 targetDatabase.databaseType(),
                 targetDatabase.url(),
                 targetDatabase.username(),
-                targetDatabase.password(),
+                targetDatabase.passwordSupplier(),
                 targetDatabase.driverClassName(),
                 mapping.locations(),
                 schemas,

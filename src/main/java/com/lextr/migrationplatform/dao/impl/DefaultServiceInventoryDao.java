@@ -57,7 +57,7 @@ public class DefaultServiceInventoryDao implements ServiceInventoryDao {
                 definition.environment(),
                 definition.url(),
                 definition.username(),
-                definition.password() != null ? definition.password() : resolvePassword(definition.passwordEnv()),
+                () -> definition.password() != null ? definition.password() : resolvePassword(definition.passwordEnv()),
                 defaultDriver(databaseType, definition.driverClassName()),
                 normalizeSchemas(definition.schema(), definition.schemas()),
                 Boolean.TRUE.equals(definition.baselineOnMigrate()),
