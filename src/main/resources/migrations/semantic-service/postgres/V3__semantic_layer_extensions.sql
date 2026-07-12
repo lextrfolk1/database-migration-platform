@@ -52,6 +52,10 @@ BEGIN
     END IF;
 END $$;
 
+ALTER TABLE meta.object_catalog
+    ADD COLUMN IF NOT EXISTS ai_business_context_txt text,
+    ADD COLUMN IF NOT EXISTS ai_prompt_guidance_txt text;
+
 ALTER TABLE meta.attribute_catalog
     ADD COLUMN IF NOT EXISTS data_classification_cd varchar(30),
     ADD COLUMN IF NOT EXISTS mnpi_flg boolean NOT NULL DEFAULT false,

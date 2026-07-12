@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class ObservabilitySignalPolicyPresetMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V5__observability_signal_policies.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void seedsObservabilityPolicyThresholdsForWorkflowRoutingAndDqReruns() throws IOException {

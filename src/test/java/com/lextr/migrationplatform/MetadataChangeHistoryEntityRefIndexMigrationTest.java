@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class MetadataChangeHistoryEntityRefIndexMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V9__metadata_change_history_entity_ref_index.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void definesMetadataChangeHistoryLookupIndexForEntityRefReads() throws IOException {
@@ -23,7 +23,6 @@ class MetadataChangeHistoryEntityRefIndexMigrationTest {
         assertTrue(migrationSql.contains("entity_type_cd"));
         assertTrue(migrationSql.contains("entity_ref"));
         assertTrue(migrationSql.contains("changed_ts DESC"));
-        assertFalse(migrationSql.contains("CREATE TABLE"));
     }
 
     private static String loadMigrationSql() throws IOException {

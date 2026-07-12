@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class ObservabilityPolicyPresetLookupMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V7__observability_policy_preset_lookup_index.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void definesPolicyPresetLookupIndexForObservabilityThresholdResolution() throws IOException {

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class ObservabilitySignalCorrelationKeyMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V6__observability_signal_correlation_key_index.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void definesCorrelationKeyIndexForObservabilitySignalLookups() throws IOException {

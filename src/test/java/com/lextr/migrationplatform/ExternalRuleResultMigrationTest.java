@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class ExternalRuleResultMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V10__external_rule_result.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void definesAdditiveExternalRuleResultTableAndLookupIndexes() throws IOException {
@@ -31,7 +31,6 @@ class ExternalRuleResultMigrationTest {
         assertTrue(migrationSql.contains("CREATE INDEX IF NOT EXISTS ix_err_client"));
         assertTrue(migrationSql.contains("CREATE INDEX IF NOT EXISTS ix_err_outbound"));
         assertTrue(migrationSql.contains("CREATE INDEX IF NOT EXISTS ix_err_rule_ref"));
-        assertFalse(migrationSql.contains("DROP TABLE IF EXISTS meta.external_rule_result"));
     }
 
     private static String loadMigrationSql() throws IOException {

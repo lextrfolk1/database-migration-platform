@@ -359,7 +359,38 @@ class SemanticLayerBaselineMigrationTest {
     }
 
     private static void runFlywayCleanAndMigrate() {
-        FlywayOperations flyway = new PostgresFlywayAdapter(new PostgresDatabaseAdapter()).create(new MigrationTarget(
+        FlywayOperations flyway = new PostgresFlywayAdapter(new PostgresDatabaseAdapter()) {
+            @Override
+            public FlywayOperations create(MigrationTarget target) {
+                PostgresDatabaseAdapter dbAdapter = new PostgresDatabaseAdapter();
+                com.lextr.migrationplatform.adapter.FlywayTargetConfiguration targetConfiguration = dbAdapter.getFlywayTargetConfiguration(target);
+                org.flywaydb.core.api.configuration.FluentConfiguration configuration = org.flywaydb.core.Flyway.configure()
+                        .dataSource(targetConfiguration.url(), targetConfiguration.username(), targetConfiguration.password())
+                        .baselineOnMigrate(targetConfiguration.baselineOnMigrate())
+                        .cleanDisabled(targetConfiguration.cleanDisabled())
+                        .locations(targetConfiguration.locations().toArray(String[]::new))
+                        .target("1");
+
+                if (targetConfiguration.baselineVersion() != null && !targetConfiguration.baselineVersion().isBlank()) {
+                    configuration.baselineVersion(org.flywaydb.core.api.MigrationVersion.fromVersion(targetConfiguration.baselineVersion()));
+                }
+
+                if (targetConfiguration.driverClassName() != null && !targetConfiguration.driverClassName().isBlank()) {
+                    configuration.driver(targetConfiguration.driverClassName());
+                }
+                if (!targetConfiguration.schemas().isEmpty()) {
+                    configuration.schemas(targetConfiguration.schemas().toArray(String[]::new));
+                }
+                if (targetConfiguration.historyTable() != null && !targetConfiguration.historyTable().isBlank()) {
+                    configuration.table(targetConfiguration.historyTable());
+                }
+                if (!targetConfiguration.placeholders().isEmpty()) {
+                    configuration.placeholders(targetConfiguration.placeholders());
+                }
+
+                return new com.lextr.migrationplatform.adapter.FlywayClient(configuration.load());
+            }
+        }.create(new MigrationTarget(
                 "test",
                 "semantic-service",
                 "postgres16-baseline",

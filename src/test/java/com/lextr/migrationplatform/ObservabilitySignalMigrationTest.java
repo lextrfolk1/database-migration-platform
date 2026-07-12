@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class ObservabilitySignalMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V4__observability_signal.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void definesTenantScopedObservabilitySignalTableWithWorkflowCorrelation() throws IOException {

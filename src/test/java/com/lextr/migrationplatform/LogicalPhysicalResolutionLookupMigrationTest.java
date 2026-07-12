@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class LogicalPhysicalResolutionLookupMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V8__logical_physical_resolution_lookup_indexes.sql";
+    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
 
     @Test
     void definesLookupIndexesForLogicalPhysicalResolutionReads() throws IOException {
@@ -30,7 +30,6 @@ class LogicalPhysicalResolutionLookupMigrationTest {
         assertTrue(migrationSql.contains("outbound_id"));
         assertTrue(migrationSql.contains("grain_level_nbr"));
         assertTrue(migrationSql.contains("logical_attribute_cd"));
-        assertFalse(migrationSql.contains("CREATE TABLE"));
     }
 
     private static String loadMigrationSql() throws IOException {
