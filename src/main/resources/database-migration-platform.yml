@@ -41,3 +41,9 @@ services:
       - target: postgres-main-dev
         locations:
           - filesystem:src/main/resources/migrations/semantic-service/postgres
+
+  workflow-service:
+    targetMappings:
+      - target: postgres-main-dev
+        locations:
+          - filesystem:src/main/resources/migrations/workflow-service/postgres
