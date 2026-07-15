@@ -1,22 +1,24 @@
 -- Registers semantic-service as a consumer of workflow-service's existing
 -- meta.module_master / meta.workflow_master / meta.workflow_module_map reference tables,
--- mirroring how SUPPLEMENTAL_UPLOAD (module 1, workflow_code SUPP) and rules_service
--- (module 2, workflow_code RULES) are already registered.
+-- mirroring how SUPPLEMENTAL_UPLOAD (module 1, workflow_code SUPP), rules_service (module 2,
+-- workflow_code RULES), workbench (module 3) and report_generation (module 4) are already
+-- registered - module id 5 is the next free slot (confirmed: ids 1-4 are already taken).
 --
 -- These tables belong to workflow-service (not semantic-service) but live in the same
 -- shared postgres-main-dev database. This migration only INSERTs reference rows - it does
 -- not alter workflow-service's schema or code. All statements are idempotent so re-running
 -- this migration (or applying it to an environment where it was manually seeded) is safe.
 
--- The existing SUPP/RULES seed rows were inserted with explicit ids, leaving these sequences
--- behind the actual max(id) - resync them first so subsequent nextval()-driven inserts here
--- (and by any other future consumer of these tables) don't collide with existing rows.
+-- The existing seed rows (modules 1-4) were inserted with explicit ids, leaving these
+-- sequences behind the actual max(id) - resync them first so subsequent nextval()-driven
+-- inserts here (and by any other future consumer of these tables) don't collide with existing
+-- rows.
 SELECT setval('meta.module_master_id_seq', GREATEST((SELECT MAX(id) FROM meta.module_master), 1), true);
 SELECT setval('meta.workflow_master_id_seq', GREATEST((SELECT MAX(id) FROM meta.workflow_master), 1), true);
 
 INSERT INTO meta.module_master (id, module_name)
-SELECT 3, 'semantic_governance'
-WHERE NOT EXISTS (SELECT 1 FROM meta.module_master WHERE id = 3);
+SELECT 5, 'semantic_governance'
+WHERE NOT EXISTS (SELECT 1 FROM meta.module_master WHERE id = 5);
 
 -- One workflow_master row per semantic-service workflow-code (see
 -- config-service semantic-service-*.yml workflow.semantic.tasks.*.workflow-code), all backed
@@ -38,10 +40,10 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM meta.workflow_master wm WHERE wm.workflow_code = v.workflow_code);
 
 INSERT INTO meta.workflow_module_map (workflow_master_id, module_master_id)
-SELECT wm.id, 3
+SELECT wm.id, 5
 FROM meta.workflow_master wm
 WHERE wm.workflow_code IN ('sem_lookup', 'sem_override', 'sem_value', 'sem_obj', 'sem_pair', 'sem_rel', 'sem_dq_rule', 'sem_consumption')
   AND NOT EXISTS (
       SELECT 1 FROM meta.workflow_module_map wmm
-      WHERE wmm.workflow_master_id = wm.id AND wmm.module_master_id = 3
+      WHERE wmm.workflow_master_id = wm.id AND wmm.module_master_id = 5
   );
