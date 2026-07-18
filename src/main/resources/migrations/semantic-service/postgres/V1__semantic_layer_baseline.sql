@@ -626,9 +626,7 @@ ON CONFLICT (policy_cd) DO NOTHING;
 -- ============================================================================
 INSERT INTO meta.data_connection
   (connection_id, connection_cd, connection_nm, engine_cd, connection_type_cd, is_default_flg, client_id) VALUES
- ('00000000-0000-0000-0000-000000000001','LEXTR_PG','Lextr PostgreSQL','POSTGRES','PRIMARY',true,'GLOBAL'),
- ('00000000-0000-0000-0000-000000000002','LEXTR_CH','Lextr ClickHouse','CLICKHOUSE','ANALYTICS',false,'GLOBAL'),
- ('00000000-0000-0000-0000-000000000003','LEXTR_NEO4J','Lextr Neo4j Graph','NEO4J','GRAPH',false,'GLOBAL')
+ ('00000000-0000-0000-0000-000000000001','LEXTR_PG','Lextr PostgreSQL','POSTGRES','PRIMARY',true,'GLOBAL')
 ON CONFLICT (connection_id) DO NOTHING;
 
 -- =============================================================================
