@@ -239,11 +239,11 @@ Validate SQL migration files and verify database connectivity for a service. Ret
 # Validate a single service against a specific target
 ./migration validate --service semantic-service --target postgres-main-dev --env dev
 
-# Validate a service against all its mapped targets
-./migration validate --service generic-service --all-targets --env dev
+# Validate a service against a specific database type
+./migration validate --service generic-service --db postgres --env dev
 
-# Validate all services
-./migration validate --all-services --env dev
+# Validate all services across all targets
+./migration validate --all-services --all-targets --env dev
 ```
 
 ---
@@ -256,11 +256,11 @@ Show what migrations would run without executing anything (dry run). Returns pen
 # Plan for a single service/target
 ./migration plan --service semantic-service --target postgres-main-dev --env dev
 
-# Plan for a service across all its targets
-./migration plan --service generic-service --all-targets --env dev
+# Plan for a service against a specific database type
+./migration plan --service generic-service --db postgres --env dev
 
-# Plan for all services
-./migration plan --all-services --env dev
+# Plan for all services across all targets
+./migration plan --all-services --all-targets --env dev
 ```
 
 ---
@@ -273,14 +273,17 @@ Execute pending migrations in **delta** mode (apply only new migrations).
 # Run migrations for a single service/target
 ./migration run --service semantic-service --target postgres-main-dev --env dev
 
-# Run for a service across all its targets
-./migration run --service generic-service --all-targets --env dev
+# Run for a service against a specific database type
+./migration run --service generic-service --db postgres --env dev
 
-# Run for all services
-./migration run --all-services --env dev
+# Run for all services across all targets
+./migration run --all-services --all-targets --env dev
+
+# Run for all services on a specific target
+./migration run --all-services --target postgres-main-dev --env dev
 
 # Continue executing remaining targets even if one fails
-./migration run --all-services --env dev --continue-on-error
+./migration run --all-services --all-targets --env dev --continue-on-error
 
 # Allow risky SQL (DROP, TRUNCATE, etc.)
 ./migration run --service generic-service --target postgres-main-dev --allow-risky
@@ -318,8 +321,8 @@ Repair the Flyway history table by removing failed migration entries and realign
 # Repair a single service/target
 ./migration repair --service semantic-service --target postgres-main-dev --env dev
 
-# Repair across all targets for a service
-./migration repair --service generic-service --all-targets --env dev
+# Repair a service against a specific database type
+./migration repair --service generic-service --db postgres --env dev
 ```
 
 ---
@@ -352,13 +355,13 @@ docker compose up -d postgres clickhouse
 ./migration services show generic-service
 
 # 4. Validate connectivity and SQL files before touching anything
-./migration validate --service generic-service --all-targets --env dev
+./migration validate --service generic-service --db postgres --env dev
 
 # 5. Preview the migration plan (dry run)
-./migration plan --service generic-service --all-targets --env dev
+./migration plan --service generic-service --db postgres --env dev
 
 # 6. Execute all pending migrations for one service
-./migration run --service generic-service --all-targets --env dev
+./migration run --service generic-service --db postgres --env dev
 
 # 7. Do the same for the other service
 ./migration run --service semantic-service --target postgres-main-dev --env dev
@@ -371,16 +374,16 @@ docker compose up -d postgres clickhouse
 
 ```bash
 # Validate everything first
-./migration validate --all-services --env dev
+./migration validate --all-services --all-targets --env dev
 
 # Dry-run plan across all services
-./migration plan --all-services --env dev
+./migration plan --all-services --all-targets --env dev
 
 # Execute all pending migrations for every service
-./migration run --all-services --env dev
+./migration run --all-services --all-targets --env dev
 
 # If you want execution to continue past failures
-./migration run --all-services --env dev --continue-on-error
+./migration run --all-services --all-targets --env dev --continue-on-error
 ```
 
 #### Full database rebuild (wipe and re-create from scratch)
@@ -396,8 +399,8 @@ docker compose up -d postgres clickhouse
 # Rebuild with risky DDL allowed
 ./migration rebuild --service generic-service --target postgres-main-dev --allow-risky --confirm
 
-# Rebuild all targets for a service
-./migration rebuild --service generic-service --all-targets --confirm
+# Rebuild a service against a specific database type
+./migration rebuild --service generic-service --db postgres --confirm
 ```
 
 > **Note:** `rebuild` calls Flyway `clean()` → `migrate()`. It is **blocked** on production by default. To enable, set `allow-production-rebuild: true` in `application.yml`.
