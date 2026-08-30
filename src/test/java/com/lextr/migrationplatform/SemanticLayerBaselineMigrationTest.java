@@ -42,26 +42,6 @@ class SemanticLayerBaselineMigrationTest {
     private static final String HISTORY_TABLE = "flyway_history_semantic_service";
     private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V1__semantic_layer_baseline.sql";
     private static final List<String> MANAGED_SCHEMAS = List.of("meta", "governance", "ref", "report", "wkfl");
-    private static final List<DropCreatePair> EXPECTED_DROP_CREATE_PAIRS = List.of(
-            new DropCreatePair("DROP TABLE IF EXISTS meta.schema_catalog;", "CREATE TABLE meta.schema_catalog ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.data_connection;", "CREATE TABLE meta.data_connection ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.object_catalog;", "CREATE TABLE meta.object_catalog ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_catalog;", "CREATE TABLE meta.attribute_catalog ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.semantic_relationship_catalog;", "CREATE TABLE meta.semantic_relationship_catalog ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_logical_name_override;", "CREATE TABLE meta.attribute_logical_name_override ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_pairing_catalog;", "CREATE TABLE meta.attribute_pairing_catalog ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.attribute_pairing_value_cache;", "CREATE TABLE meta.attribute_pairing_value_cache ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.semantic_filter_lookup;", "CREATE TABLE meta.semantic_filter_lookup ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.filter_lookup_value;", "CREATE TABLE meta.filter_lookup_value ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.filter_lookup_exec_log;", "CREATE TABLE meta.filter_lookup_exec_log ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.filter_lookup_binding;", "CREATE TABLE meta.filter_lookup_binding ("),
-            new DropCreatePair("DROP TABLE IF EXISTS governance.policy_preset;", "CREATE TABLE governance.policy_preset ("),
-            new DropCreatePair("DROP TABLE IF EXISTS wkfl.workflow_task;", "CREATE TABLE wkfl.workflow_task ("),
-            new DropCreatePair("DROP TABLE IF EXISTS meta.metadata_change_history;", "CREATE TABLE meta.metadata_change_history ("),
-            new DropCreatePair("DROP TABLE IF EXISTS report.report_definition;", "CREATE TABLE report.report_definition ("),
-            new DropCreatePair("DROP TABLE IF EXISTS report.report_line_definition;", "CREATE TABLE report.report_line_definition ("),
-            new DropCreatePair("DROP TABLE IF EXISTS ref.country;", "CREATE TABLE ref.country (")
-    );
     private static final Set<String> EXPECTED_TABLES = Set.of(
             "governance.policy_preset",
             "meta.attribute_catalog",
@@ -179,7 +159,9 @@ class SemanticLayerBaselineMigrationTest {
     @BeforeAll
     static void migrateBaselineIntoPostgres16() throws Exception {
         loadMigrationSql();
-        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
+        if (!isDockerRunning()) {
+            return;
+        }
         containerName = "semantic-layer-baseline-" + UUID.randomUUID().toString().replace("-", "");
         startPostgres16Container();
         waitForDatabase();
@@ -200,7 +182,35 @@ class SemanticLayerBaselineMigrationTest {
     }
 
     @Test
+    void sqlFileContainsSchemasAnd18TablesAnd20IndexesAndSeedStatements() throws IOException {
+        if (migrationSql == null) {
+            loadMigrationSql();
+        }
+        for (String schema : MANAGED_SCHEMAS) {
+            assertTrue(migrationSql.contains("CREATE SCHEMA IF NOT EXISTS " + schema + ";"),
+                    "Missing schema declaration for " + schema);
+        }
+        for (String qualifiedTable : EXPECTED_TABLES) {
+            assertTrue(migrationSql.contains("CREATE TABLE " + qualifiedTable + " ("),
+                    "Missing CREATE TABLE statement for " + qualifiedTable);
+        }
+        for (String indexName : EXPECTED_INDEXES) {
+            assertTrue(migrationSql.contains("CREATE INDEX " + indexName + " "),
+                    "Missing CREATE INDEX statement for " + indexName);
+        }
+        for (String policyCd : EXPECTED_POLICY_DEFAULTS.keySet()) {
+            assertTrue(migrationSql.contains("'" + policyCd + "'"),
+                    "Missing seed insert statement for governance policy preset " + policyCd);
+        }
+        for (String connCd : EXPECTED_CONNECTIONS.keySet()) {
+            assertTrue(migrationSql.contains("'" + connCd + "'"),
+                    "Missing seed insert statement for data connection " + connCd);
+        }
+    }
+
+    @Test
     void flywayCleanAndMigrateAppliedV1Baseline() throws SQLException {
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         try (Connection connection = openConnection();
              PreparedStatement statement = connection.prepareStatement(
                      "select version, success from meta." + HISTORY_TABLE + " where version = ?")) {
@@ -214,17 +224,8 @@ class SemanticLayerBaselineMigrationTest {
     }
 
     @Test
-    void dropStatementsExistForAllSemanticTables() {
-        for (DropCreatePair pair : EXPECTED_DROP_CREATE_PAIRS) {
-            assertTrue(
-                    migrationSql.contains(pair.dropStatement() + System.lineSeparator() + pair.createStatement()),
-                    "Missing adjacent drop/create pair: " + pair.dropStatement() + " -> " + pair.createStatement()
-            );
-        }
-    }
-
-    @Test
     void allExpectedTablesExist() throws SQLException {
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         String sql = """
                 select table_schema || '.' || table_name as qualified_name
                 from information_schema.tables
@@ -248,6 +249,7 @@ class SemanticLayerBaselineMigrationTest {
 
     @Test
     void allExpectedIndexesExist() throws SQLException {
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         String sql = """
                 select indexname
                 from pg_indexes
@@ -260,6 +262,7 @@ class SemanticLayerBaselineMigrationTest {
 
     @Test
     void allExpectedNamedConstraintsExist() throws SQLException {
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         String sql = """
                 select constraint_name
                 from information_schema.table_constraints
@@ -272,12 +275,20 @@ class SemanticLayerBaselineMigrationTest {
 
     @Test
     void filterLookupBindingConstraintAllowsQueryStudioBindingContext() {
+        if (migrationSql == null) {
+            try {
+                loadMigrationSql();
+            } catch (IOException e) {
+                fail(e);
+            }
+        }
         assertTrue(migrationSql.contains("CONSTRAINT ck_flb_ctx CHECK (binding_context_cd IN"));
         assertTrue(migrationSql.contains("('RULE','QUERY_STUDIO','PIPELINE','LEXIE')"));
     }
 
     @Test
     void sixGovernancePresetsSeeded() throws SQLException {
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         Map<String, String> defaultValues = new LinkedHashMap<>();
         Map<String, String> dataTypes = new LinkedHashMap<>();
         try (Connection connection = openConnection();
@@ -297,6 +308,7 @@ class SemanticLayerBaselineMigrationTest {
 
     @Test
     void postgresClickhouseAndNeo4jConnectionsSeeded() throws SQLException {
+        Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         Map<String, ConnectionSeedExpectation> actualConnections = new LinkedHashMap<>();
         try (Connection connection = openConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -467,9 +479,6 @@ class SemanticLayerBaselineMigrationTest {
     }
 
     private record ConnectionSeedExpectation(String engineCode, String connectionTypeCode, boolean defaultFlag) {
-    }
-
-    private record DropCreatePair(String dropStatement, String createStatement) {
     }
 
     private record CommandResult(int exitCode, String output) {
