@@ -27,14 +27,14 @@ targets:
     historyTablePrefix: flyway_history
 
 services:
-  generic-service:
+  database-scripts:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - filesystem:src/main/resources/migrations/generic-service/postgres
+          - filesystem:src/main/resources/migrations/database-scripts/postgres
       - target: clickhouse-analytics-dev
         locations:
-          - filesystem:src/main/resources/migrations/generic-service/clickhouse
+          - filesystem:src/main/resources/migrations/database-scripts/clickhouse
 
   semantic-service:
     targetMappings:
