@@ -12,11 +12,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class ExternalRuleResultMigrationTest {
 
-    private static final String MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
+    private static final String V3_MIGRATION_PATH = "migrations/semantic-service/postgres/V3__semantic_layer_extensions.sql";
+    private static final String V7_MIGRATION_PATH = "migrations/semantic-service/postgres/V7__external_rule_result.sql";
 
     @Test
     void definesAdditiveExternalRuleResultTableAndLookupIndexes() throws IOException {
-        String migrationSql = loadMigrationSql();
+        String migrationSql = loadMigrationSql(V7_MIGRATION_PATH);
 
         assertTrue(migrationSql.contains("CREATE TABLE IF NOT EXISTS meta.external_rule_result"));
         assertTrue(migrationSql.contains("id                  bigserial    PRIMARY KEY"));
@@ -33,10 +34,10 @@ class ExternalRuleResultMigrationTest {
         assertTrue(migrationSql.contains("CREATE INDEX IF NOT EXISTS ix_err_rule_ref"));
     }
 
-    private static String loadMigrationSql() throws IOException {
-        try (InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(MIGRATION_PATH)) {
+    private static String loadMigrationSql(String path) throws IOException {
+        try (InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {
             if (inputStream == null) {
-                fail("Migration file not found on classpath: " + MIGRATION_PATH);
+                fail("Migration file not found on classpath: " + path);
             }
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         }
