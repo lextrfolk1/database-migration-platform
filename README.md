@@ -436,7 +436,7 @@ docker compose up -d postgres clickhouse
 ```bash
 # Record who initiated the migration
 ./migration run --service semantic-service --target postgres-main-dev \
-  --env dev --requested-by tejal.patel --confirm
+  --env dev --requested-by lextrfolk1.patel --confirm
 ```
 
 ---
@@ -560,3 +560,9 @@ docker compose up --build
 - `scripts/stop.sh` / `scripts/stop.cmd` — stop the API server
 - `docker-compose.yml`
 - `Dockerfile`
+
+
+## Sample commands
+./migration run --service database-scripts --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+./migration run --service semantic-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+./migration run --service workflow-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
