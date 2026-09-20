@@ -133,7 +133,6 @@ $$;
 CREATE EXTENSION IF NOT EXISTS vector;     -- pgvector: embedding_store
 CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- trigram lookup for cross_reference _by_name_words
 
-SET search_path TO intelligence, public;
 
 -- ---------------------------------------------------------------------
 -- 1. Enumerated types (regulated product -> typed taxonomies)

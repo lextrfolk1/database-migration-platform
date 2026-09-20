@@ -4,6 +4,8 @@
 -- LP-56.3: Drop profile tables and per-document drop declarations
 -- =====================================================================
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 1. chunk_reference (LP-55.3)
 CREATE TABLE IF NOT EXISTS intelligence.chunk_reference (
     from_chunk_id  bigint NOT NULL REFERENCES intelligence.document_chunk (id) ON DELETE CASCADE,
