@@ -75,7 +75,11 @@ CREATE OR REPLACE FUNCTION intelligence.fn_agent_run_event_immutability()
 RETURNS TRIGGER AS $$
 BEGIN
     IF current_setting('lextr.evidence_maintenance', true) = 'on' THEN
-        RETURN OLD;
+        IF (TG_OP = 'DELETE') THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
     END IF;
     RAISE EXCEPTION 'agent_run_event is append-only. Updates and deletes are prohibited.';
 END;

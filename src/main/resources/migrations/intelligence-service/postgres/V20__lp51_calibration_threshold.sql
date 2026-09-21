@@ -51,6 +51,11 @@ CREATE INDEX IF NOT EXISTS idx_cal_thresh_lookup ON intelligence.calibration_thr
     client_id, threshold_key, effective_from, effective_to
 );
 
+-- Unique index ensuring at most one active threshold per client and key
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cal_thresh_active ON intelligence.calibration_threshold (
+    client_id, threshold_key
+) WHERE effective_to IS NULL;
+
 -- 3. Immutability Trigger (superseded, never updated in place)
 CREATE OR REPLACE FUNCTION intelligence.fn_calibration_threshold_immutable()
 RETURNS TRIGGER AS $$
@@ -86,4 +91,4 @@ INSERT INTO intelligence.calibration_threshold (
     'default', 'relative_promotion_threshold', 'numeric', 0.0500, 0.0010, 0.2000,
     'MODEL_VALIDATION', 'Calibrators exceeding relative drift threshold fail promotion.', 'system'
 )
-ON CONFLICT DO NOTHING;
+ON CONFLICT (client_id, threshold_key) WHERE effective_to IS NULL DO NOTHING;

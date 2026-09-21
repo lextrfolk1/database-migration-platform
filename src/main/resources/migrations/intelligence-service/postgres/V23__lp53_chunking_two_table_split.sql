@@ -65,8 +65,33 @@ CREATE TABLE IF NOT EXISTS intelligence.embedding_chunk_source (
 
 CREATE INDEX IF NOT EXISTS emb_chunk_src_doc_chunk_idx ON intelligence.embedding_chunk_source (document_chunk_id);
 
--- 4. Re-point embedding_store to embedding_chunk and clear old vectors
-DELETE FROM intelligence.embedding_store;
+-- 3b. Safe upgrade backfill: preserve existing vector chunks from document_chunk
+INSERT INTO intelligence.embedding_chunk (
+    id, client_id, document_id, content, token_count, chunk_index, content_sha256, created_at
+) OVERRIDING SYSTEM VALUE
+SELECT 
+    dc.id, 
+    dc.client_id, 
+    dc.document_id, 
+    dc.content, 
+    COALESCE(dc.token_count, 0), 
+    dc.chunk_index, 
+    encode(sha256(dc.content::bytea), 'hex'), 
+    dc.created_at
+FROM intelligence.document_chunk dc
+WHERE dc.id IN (SELECT chunk_id FROM intelligence.embedding_store)
+ON CONFLICT (id) DO NOTHING;
+
+-- Populate join mapping in embedding_chunk_source for backfilled chunks
+INSERT INTO intelligence.embedding_chunk_source (embedding_chunk_id, document_chunk_id, sequence_index)
+SELECT ec.id, ec.id, 0
+FROM intelligence.embedding_chunk ec
+WHERE ec.id IN (SELECT id FROM intelligence.document_chunk)
+ON CONFLICT (embedding_chunk_id, document_chunk_id) DO NOTHING;
+
+-- 4. Re-point embedding_store to embedding_chunk (clean orphaned legacy un-split vectors)
+DELETE FROM intelligence.embedding_store
+WHERE chunk_id NOT IN (SELECT id FROM intelligence.embedding_chunk);
 
 ALTER TABLE intelligence.embedding_store
     DROP CONSTRAINT IF EXISTS embedding_store_chunk_id_fkey;

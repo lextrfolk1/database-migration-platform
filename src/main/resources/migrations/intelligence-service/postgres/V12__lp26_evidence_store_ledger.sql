@@ -1,8 +1,8 @@
 -- Migration V20260916_09__lp26_evidence_store_ledger.sql
 -- Multi-layer tamper-evident evidence store ledger schema (LP-26.1)
 
-CREATE TABLE IF NOT EXISTS evidence_store_record (
-    id BIGSERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS intelligence.evidence_store_record (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     evidence_id VARCHAR(64) NOT NULL UNIQUE,
     client_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS evidence_store_record (
 );
 
 CREATE INDEX IF NOT EXISTS idx_evidence_client_run
-    ON evidence_store_record (client_id, run_id, step_number);
+    ON intelligence.evidence_store_record (client_id, run_id, step_number);
 
 CREATE INDEX IF NOT EXISTS idx_evidence_chain_hash
-    ON evidence_store_record (cumulative_chain_hash);
+    ON intelligence.evidence_store_record (cumulative_chain_hash);
 
 CREATE INDEX IF NOT EXISTS idx_evidence_created
-    ON evidence_store_record (client_id, created_at DESC);
+    ON intelligence.evidence_store_record (client_id, created_at DESC);

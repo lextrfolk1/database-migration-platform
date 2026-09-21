@@ -4,38 +4,83 @@
 -- Invariant: No cross-tenant row is ever visible regardless of application-layer predicates.
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1. Add tenant_id column to core execution tables (if not already present)
+-- 1. Add tenant_id column without default (fail-closed, must be provided by app code)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 ALTER TABLE intelligence.agent_run
-    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'DEFAULT_TENANT'
-        REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
 
-ALTER TABLE intelligence.evidence_step
-    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'DEFAULT_TENANT'
-        REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+ALTER TABLE intelligence.agent_run_step
+    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
 
-ALTER TABLE intelligence.preset_definition
-    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'DEFAULT_TENANT'
-        REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+ALTER TABLE intelligence.preset
+    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
 
 ALTER TABLE intelligence.registered_definition
-    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'DEFAULT_TENANT'
-        REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
 
-ALTER TABLE intelligence.review_queue_item
-    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'DEFAULT_TENANT'
-        REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+-- 1b. Backfill existing legacy rows from client_id before enforcing NOT NULL
+UPDATE intelligence.agent_run
+    SET tenant_id = client_id
+    WHERE tenant_id IS NULL;
+
+UPDATE intelligence.agent_run_step
+    SET tenant_id = client_id
+    WHERE tenant_id IS NULL;
+
+UPDATE intelligence.preset
+    SET tenant_id = client_id
+    WHERE tenant_id IS NULL;
+
+UPDATE intelligence.registered_definition
+    SET tenant_id = client_id
+    WHERE tenant_id IS NULL;
+
+-- 1c. Enforce NOT NULL without any default value (tenant_id MUST be supplied by code on creation)
+ALTER TABLE intelligence.agent_run
+    ALTER COLUMN tenant_id SET NOT NULL;
+
+ALTER TABLE intelligence.agent_run_step
+    ALTER COLUMN tenant_id SET NOT NULL;
+
+ALTER TABLE intelligence.preset
+    ALTER COLUMN tenant_id SET NOT NULL;
+
+ALTER TABLE intelligence.registered_definition
+    ALTER COLUMN tenant_id SET NOT NULL;
+
+-- 1d. Foreign keys referencing tenant_profile
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agent_run_tenant') THEN
+        ALTER TABLE intelligence.agent_run
+            ADD CONSTRAINT fk_agent_run_tenant FOREIGN KEY (tenant_id) REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_agent_run_step_tenant') THEN
+        ALTER TABLE intelligence.agent_run_step
+            ADD CONSTRAINT fk_agent_run_step_tenant FOREIGN KEY (tenant_id) REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_preset_tenant') THEN
+        ALTER TABLE intelligence.preset
+            ADD CONSTRAINT fk_preset_tenant FOREIGN KEY (tenant_id) REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_registered_def_tenant') THEN
+        ALTER TABLE intelligence.registered_definition
+            ADD CONSTRAINT fk_registered_def_tenant FOREIGN KEY (tenant_id) REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE RESTRICT;
+    END IF;
+END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. Composite indexes — tenant-first for optimal RLS predicate push-down
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE INDEX IF NOT EXISTS idx_agent_run_tenant         ON intelligence.agent_run(tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_evidence_step_tenant     ON intelligence.evidence_step(tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_preset_definition_tenant ON intelligence.preset_definition(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agent_run_step_tenant    ON intelligence.agent_run_step(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_preset_tenant            ON intelligence.preset(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_registered_def_tenant    ON intelligence.registered_definition(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_review_queue_tenant      ON intelligence.review_queue_item(tenant_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. Enable Row-Level Security on all tenant-scoped tables
@@ -44,81 +89,64 @@ CREATE INDEX IF NOT EXISTS idx_review_queue_tenant      ON intelligence.review_q
 ALTER TABLE intelligence.agent_run            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intelligence.agent_run            FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE intelligence.evidence_step        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE intelligence.evidence_step        FORCE ROW LEVEL SECURITY;
+ALTER TABLE intelligence.agent_run_step       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE intelligence.agent_run_step       FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE intelligence.preset_definition    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE intelligence.preset_definition    FORCE ROW LEVEL SECURITY;
+ALTER TABLE intelligence.preset               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE intelligence.preset               FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE intelligence.registered_definition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intelligence.registered_definition FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE intelligence.review_queue_item    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE intelligence.review_queue_item    FORCE ROW LEVEL SECURITY;
-
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4. RLS SELECT policies — enforce tenant_id = session parameter
+-- 4. RLS policies — enforce strict tenant_id = session parameter (fail-closed, no fallback)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE POLICY rls_agent_run_select ON intelligence.agent_run
     FOR SELECT
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 CREATE POLICY rls_agent_run_insert ON intelligence.agent_run
     FOR INSERT
-    WITH CHECK (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 CREATE POLICY rls_agent_run_update ON intelligence.agent_run
     FOR UPDATE
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 -- ──────────────────────────────────
 
-CREATE POLICY rls_evidence_step_select ON intelligence.evidence_step
+CREATE POLICY rls_agent_run_step_select ON intelligence.agent_run_step
     FOR SELECT
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
-CREATE POLICY rls_evidence_step_insert ON intelligence.evidence_step
+CREATE POLICY rls_agent_run_step_insert ON intelligence.agent_run_step
     FOR INSERT
-    WITH CHECK (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 -- ──────────────────────────────────
 
-CREATE POLICY rls_preset_select ON intelligence.preset_definition
+CREATE POLICY rls_preset_select ON intelligence.preset
     FOR SELECT
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
-CREATE POLICY rls_preset_insert ON intelligence.preset_definition
+CREATE POLICY rls_preset_insert ON intelligence.preset
     FOR INSERT
-    WITH CHECK (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
-CREATE POLICY rls_preset_update ON intelligence.preset_definition
+CREATE POLICY rls_preset_update ON intelligence.preset
     FOR UPDATE
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 -- ──────────────────────────────────
 
 CREATE POLICY rls_regdef_select ON intelligence.registered_definition
     FOR SELECT
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 CREATE POLICY rls_regdef_insert ON intelligence.registered_definition
     FOR INSERT
-    WITH CHECK (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
-
--- ──────────────────────────────────
-
-CREATE POLICY rls_review_select ON intelligence.review_queue_item
-    FOR SELECT
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
-
-CREATE POLICY rls_review_insert ON intelligence.review_queue_item
-    FOR INSERT
-    WITH CHECK (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
-
-CREATE POLICY rls_review_update ON intelligence.review_queue_item
-    FOR UPDATE
-    USING (tenant_id = COALESCE(current_setting('app.current_tenant_id', TRUE), 'DEFAULT_TENANT'));
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5. ABAC attribute store — per-user per-tenant role/attribute binding

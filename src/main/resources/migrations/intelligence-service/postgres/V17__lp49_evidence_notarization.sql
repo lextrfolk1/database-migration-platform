@@ -84,7 +84,11 @@ CREATE OR REPLACE FUNCTION intelligence.fn_prevent_evidence_modification()
 RETURNS TRIGGER AS $$
 BEGIN
     IF current_setting('lextr.evidence_maintenance', true) = 'on' THEN
-        RETURN NEW;
+        IF (TG_OP = 'DELETE') THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
     END IF;
     RAISE EXCEPTION 'Modification of evidence records is forbidden without lextr.evidence_maintenance enabled';
 END;
