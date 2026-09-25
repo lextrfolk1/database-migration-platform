@@ -130,6 +130,8 @@ Configured services:
   - `classpath:migrations/generic-service/clickhouse`
 - `semantic-service`
   - `classpath:migrations/semantic-service/postgres`
+- `intelligence-service`
+  - `classpath:migrations/intelligence-service/postgres`
 
 ## Flyway history isolation
 
@@ -566,3 +568,4 @@ docker compose up --build
 ./migration run --service database-scripts --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
 ./migration run --service semantic-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
 ./migration run --service workflow-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+./migration run --service intelligence-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
