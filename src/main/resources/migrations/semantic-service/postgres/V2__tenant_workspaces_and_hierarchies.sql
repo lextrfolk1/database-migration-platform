@@ -85,12 +85,12 @@ CREATE INDEX IF NOT EXISTS ix_lhl_hierarchy ON meta.logical_hierarchy_level (hie
 -- ============================================================================
 -- SEED — register database schemas in schema_catalog (required by object_catalog FK)
 -- ============================================================================
-INSERT INTO meta.schema_catalog (schema_cd, schema_nm, schema_purpose_txt, client_id, lifecycle_status_cd) VALUES
-  ('meta',       'Meta',       'Internal metadata schema',              'GLOBAL', 'ACTIVE'),
-  ('data',       'Data',       'Primary data tables',                   'GLOBAL', 'ACTIVE'),
-  ('ref',        'Ref',        'Reference and lookup data',             'GLOBAL', 'ACTIVE'),
-  ('governance', 'Governance', 'Governance policies and presets',       'GLOBAL', 'ACTIVE'),
-  ('report',     'Report',     'Regulatory report definitions',         'GLOBAL', 'ACTIVE'),
-  ('wkfl',       'Workflow',   'Approval workflow tables',              'GLOBAL', 'ACTIVE'),
-  ('public',     'Public',     'Default PostgreSQL public schema',      'GLOBAL', 'ACTIVE')
+INSERT INTO meta.schema_catalog (schema_cd, schema_nm, schema_purpose_txt, lifecycle_status_cd) VALUES
+  ('meta',       'Meta',       'Internal metadata schema',              'ACTIVE'),
+  ('data',       'Data',       'Primary data tables',                   'ACTIVE'),
+  ('ref',        'Ref',        'Reference and lookup data',             'ACTIVE'),
+  ('governance', 'Governance', 'Governance policies and presets',       'ACTIVE'),
+  ('report',     'Report',     'Regulatory report definitions',         'ACTIVE'),
+  ('wkfl',       'Workflow',   'Approval workflow tables',              'ACTIVE'),
+  ('public',     'Public',     'Default PostgreSQL public schema',      'ACTIVE')
 ON CONFLICT (schema_cd) DO NOTHING;
