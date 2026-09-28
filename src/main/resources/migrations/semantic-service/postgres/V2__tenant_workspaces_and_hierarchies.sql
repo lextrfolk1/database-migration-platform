@@ -85,6 +85,13 @@ CREATE INDEX IF NOT EXISTS ix_lhl_hierarchy ON meta.logical_hierarchy_level (hie
 -- ============================================================================
 -- SEED — register database schemas in schema_catalog (required by object_catalog FK)
 -- ============================================================================
+-- schema_catalog is referenced by object_catalog, so clear the dependent semantic
+-- catalog data before rebuilding this seed set.
+DELETE FROM meta.object_catalog;
+
+DELETE FROM meta.schema_catalog
+WHERE schema_cd IN ('meta', 'data', 'ref', 'governance', 'report', 'wkfl', 'public');
+
 INSERT INTO meta.schema_catalog (schema_cd, schema_nm, schema_purpose_txt, lifecycle_status_cd) VALUES
   ('meta',       'Meta',       'Internal metadata schema',              'ACTIVE'),
   ('data',       'Data',       'Primary data tables',                   'ACTIVE'),

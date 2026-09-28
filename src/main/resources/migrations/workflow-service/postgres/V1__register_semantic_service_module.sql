@@ -5,9 +5,8 @@
 -- registered - module id 5 is the next free slot (confirmed: ids 1-4 are already taken).
 --
 -- These tables belong to workflow-service (not semantic-service) but live in the same
--- shared postgres-main-dev database. This migration only INSERTs reference rows - it does
--- not alter workflow-service's schema or code. All statements are idempotent so re-running
--- this migration (or applying it to an environment where it was manually seeded) is safe.
+-- shared postgres-main-dev database. This migration only resets and INSERTs its own reference
+-- rows; it does not alter workflow-service's schema or code.
 
 -- The existing seed rows (modules 1-4) were inserted with explicit ids, leaving these
 -- sequences behind the actual max(id) - resync them first so subsequent nextval()-driven
@@ -16,9 +15,34 @@
 SELECT setval('meta.module_master_id_seq', GREATEST((SELECT MAX(id) FROM meta.module_master), 1), true);
 SELECT setval('meta.workflow_master_id_seq', GREATEST((SELECT MAX(id) FROM meta.workflow_master), 1), true);
 
+-- Remove only semantic-service registrations, in foreign-key-safe order, before rebuilding them.
+DELETE FROM meta.workflow_module_map wmm
+USING meta.workflow_master wm
+WHERE wmm.workflow_master_id = wm.id
+  AND (
+      wm.workflow_code IN (
+          'sem_lookup', 'sem_override', 'sem_value', 'sem_obj', 'sem_pair', 'sem_rel',
+          'sem_dq_rule', 'sem_consumption'
+      )
+      OR wmm.module_master_id = 5
+  );
+
+DELETE FROM meta.workflow_master
+WHERE workflow_code IN (
+    'sem_lookup', 'sem_override', 'sem_value', 'sem_obj', 'sem_pair', 'sem_rel',
+    'sem_dq_rule', 'sem_consumption'
+)
+  AND NOT EXISTS (
+      SELECT 1
+      FROM data.workflow_detail wd
+      WHERE wd.workflow_master_id = meta.workflow_master.id
+  );
+
+DELETE FROM meta.module_master
+WHERE id = 5;
+
 INSERT INTO meta.module_master (id, module_name)
-SELECT 5, 'semantic_governance'
-WHERE NOT EXISTS (SELECT 1 FROM meta.module_master WHERE id = 5);
+VALUES (5, 'semantic_governance');
 
 -- One workflow_master row per semantic-service workflow-code (see
 -- config-service semantic-service-*.yml workflow.semantic.tasks.*.workflow-code), all backed
@@ -26,7 +50,8 @@ WHERE NOT EXISTS (SELECT 1 FROM meta.module_master WHERE id = 5);
 -- workflow-service's GET /workflow-metadata (verified live 2026-07-12; no single-stage
 -- workflow is registered there, so every semantic-service task type uses the two-stage flow).
 INSERT INTO meta.workflow_master (workflow_code, workflow_name, workflow_description, created_by, updated_by)
-SELECT v.workflow_code, v.workflow_name, v.workflow_description, 'semantic-service-migration', 'semantic-service-migration'
+SELECT v.workflow_code, v.workflow_name, v.workflow_description,
+       'semantic-service-migration', 'semantic-service-migration'
 FROM (VALUES
     ('sem_lookup', 'two_stage_approval_workflow', 'Semantic filter lookup registration approval'),
     ('sem_override', 'two_stage_approval_workflow', 'Semantic attribute logical name override approval'),
@@ -37,13 +62,13 @@ FROM (VALUES
     ('sem_dq_rule', 'two_stage_approval_workflow', 'Semantic DQ rule request approval'),
     ('sem_consumption', 'two_stage_approval_workflow', 'Semantic consumption promotion approval')
 ) AS v(workflow_code, workflow_name, workflow_description)
-WHERE NOT EXISTS (SELECT 1 FROM meta.workflow_master wm WHERE wm.workflow_code = v.workflow_code);
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM meta.workflow_master wm
+    WHERE wm.workflow_code = v.workflow_code
+);
 
 INSERT INTO meta.workflow_module_map (workflow_master_id, module_master_id)
 SELECT wm.id, 5
 FROM meta.workflow_master wm
-WHERE wm.workflow_code IN ('sem_lookup', 'sem_override', 'sem_value', 'sem_obj', 'sem_pair', 'sem_rel', 'sem_dq_rule', 'sem_consumption')
-  AND NOT EXISTS (
-      SELECT 1 FROM meta.workflow_module_map wmm
-      WHERE wmm.workflow_master_id = wm.id AND wmm.module_master_id = 5
-  );
+WHERE wm.workflow_code IN ('sem_lookup', 'sem_override', 'sem_value', 'sem_obj', 'sem_pair', 'sem_rel', 'sem_dq_rule', 'sem_consumption');

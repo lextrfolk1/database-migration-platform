@@ -28,6 +28,12 @@ CREATE INDEX IF NOT EXISTS ix_ac_provenance_type ON meta.attribute_catalog (prov
 CREATE INDEX IF NOT EXISTS ix_ac_promoted_from_ref ON meta.attribute_catalog (promoted_from_ref);
 
 -- 2. Governance policy presets for attribute promotion
+DELETE FROM governance.policy_preset
+WHERE policy_cd IN (
+    'ATTRIBUTE_PROMOTION_REQUIRES_APPROVAL',
+    'ATTRIBUTE_PROMOTION_AUTO_GOVERN'
+);
+
 INSERT INTO governance.policy_preset (
     policy_cd, policy_nm, policy_scope_cd, default_value_txt, data_type_cd, is_overrideable_flg, override_requires_approval_flg
 ) VALUES

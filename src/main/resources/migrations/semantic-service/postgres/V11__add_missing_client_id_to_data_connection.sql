@@ -11,4 +11,4 @@ ADD COLUMN IF NOT EXISTS client_id varchar(40) NOT NULL DEFAULT 'GLOBAL';
 -- Update existing rows to have client_id = 'GLOBAL'
 UPDATE meta.data_connection SET client_id = 'GLOBAL' WHERE client_id IS NULL;
 
-CREATE INDEX IF NOT EXISTS ix_dc_client ON meta.data_connection (client_id);
+CREATE INDEX IF NOT EXISTS ix_data_connection_client ON meta.data_connection (client_id);

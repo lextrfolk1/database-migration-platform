@@ -7,6 +7,13 @@
 -- Attribute Catalog Domain Wiring & Governance Policy Presets
 -- =============================================================================
 
+-- Rebuild the domain extension and its dependent data on every execution.
+DROP TABLE IF EXISTS meta.domain_value_text CASCADE;
+DROP TABLE IF EXISTS meta.domain_value_source_map CASCADE;
+DROP TABLE IF EXISTS meta.domain_value_synonym CASCADE;
+DROP TABLE IF EXISTS meta.domain_value CASCADE;
+DROP TABLE IF EXISTS meta.domain_catalog CASCADE;
+
 -- 1. meta.domain_catalog
 CREATE TABLE IF NOT EXISTS meta.domain_catalog (
     id                              bigserial    PRIMARY KEY,
@@ -28,7 +35,7 @@ CREATE TABLE IF NOT EXISTS meta.domain_catalog (
     CONSTRAINT ck_dc_lifecycle CHECK (lifecycle_status_cd IN ('DRAFT','REVIEW','APPROVED','ACTIVE','DEPRECATED','RETIRED','REJECTED'))
 );
 
-CREATE INDEX IF NOT EXISTS ix_dc_client ON meta.domain_catalog (client_id);
+CREATE INDEX ix_domain_catalog_client ON meta.domain_catalog (client_id);
 
 -- 2. meta.domain_value
 CREATE TABLE IF NOT EXISTS meta.domain_value (
@@ -113,6 +120,13 @@ CREATE INDEX IF NOT EXISTS ix_dvt_domain_val ON meta.domain_value_text (domain_c
 
 -- 7. Governance policy presets
 ALTER TABLE governance.policy_preset ALTER COLUMN policy_cd TYPE varchar(60);
+
+DELETE FROM governance.policy_preset
+WHERE policy_cd IN (
+    'DOMAIN_INLINE_MAX_CARDINALITY',
+    'DOMAIN_MAX_ENUMERATE_CARDINALITY',
+    'DOMAIN_RESOLVE_TTL_SECONDS'
+);
 
 INSERT INTO governance.policy_preset (
     policy_cd, policy_nm, policy_scope_cd, default_value_txt, data_type_cd, is_overrideable_flg, override_requires_approval_flg
