@@ -24,20 +24,32 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid() keys on the drop
 -- ---------------------------------------------------------------------
 -- Knowledge / grounding
 -- ---------------------------------------------------------------------
-CREATE TYPE intelligence.source_type AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.source_type AS ENUM
     ('instruction', 'edit_check', 'data_dictionary', 'form');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.doc_type AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.doc_type AS ENUM
     ('instruction', 'edit_check', 'data_dictionary', 'form', 'walk_procedure',
-     'policy', 'procedure', 'standard', 'prior_filing');                       -- last four: UC11 Rules Copilot sources
+     'policy', 'procedure', 'standard', 'prior_filing');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;                       -- last four: UC11 Rules Copilot sources
 
 -- form_version lifecycle
-CREATE TYPE intelligence.ingestion_status AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.ingestion_status AS ENUM
     ('pending', 'ingesting', 'completed', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Knowledge Hub lifecycle on regulatory_document (deliberately NOT shared with form_version)
-CREATE TYPE intelligence.kh_ingestion_status AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.kh_ingestion_status AS ENUM
     ('RECEIVED', 'CLASSIFIED', 'CHUNKED', 'EMBEDDED', 'AVAILABLE', 'FAILED', 'QUARANTINED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Enforcement model (the schema RECORDS the tier; it does NOT enforce it):
 --   PUBLIC / INTERNAL ............ pass through unmasked.
@@ -45,60 +57,120 @@ CREATE TYPE intelligence.kh_ingestion_status AS ENUM
 --   MNPI ......................... masked AND OPA forces local SLM (is_local=true); never external.
 --   SENSITIVE .................... masked by the masking layer.
 --   AI_PROHIBITED ................ HARD DENY: never returned, never embedded, never routed to a model.
-CREATE TYPE intelligence.data_classification AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.data_classification AS ENUM
     ('PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'MNPI', 'SENSITIVE', 'AI_PROHIBITED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------
 -- Models, presets, runs
 -- ---------------------------------------------------------------------
-CREATE TYPE intelligence.model_type AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.model_type AS ENUM
     ('SLM', 'LLM', 'EMBEDDING', 'RERANKER');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.model_tier AS ENUM
-    ('platform', 'tenant');                                                   -- routing tiers 1/2; tier 3 = preset override
+DO $$ BEGIN
+    CREATE TYPE intelligence.model_tier AS ENUM
+    ('platform', 'tenant');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;                                                   -- routing tiers 1/2; tier 3 = preset override
 
-CREATE TYPE intelligence.output_type AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.output_type AS ENUM
     ('narrative', 'dataset', 'chart', 'reconciliation', 'validation', 'impact_list', 'ranked_list',
      'report_match_set',                                                      -- UC10 analytical assist
      'narrative_dataset', 'needs_input', 'route_out', 'driver_breakdown',     -- /run wire vocabulary
-     'rule_draft');                                                           -- UC11 Rules Copilot
+     'rule_draft');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;                                                           -- UC11 Rules Copilot
 
-CREATE TYPE intelligence.skill_type AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.skill_type AS ENUM
     ('SKILL_1', 'SKILL_2', 'SKILL_3');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.masking_type AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.masking_type AS ENUM
     ('none', 'relative_change', 'entity_token', 'threshold_boolean', 'rank_ordinal', 'client_token');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.run_status AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.run_status AS ENUM
     ('created', 'running', 'completed', 'in_review', 'accepted', 'corrected', 'rejected', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.review_level AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.review_level AS ENUM
     ('analyst', 'senior_management');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.review_decision AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.review_decision AS ENUM
     ('accept', 'correct', 'reject');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.preset_status AS ENUM
+DO $$ BEGIN
+    CREATE TYPE intelligence.preset_status AS ENUM
     ('draft', 'observed', 'operational', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE intelligence.envelope_status AS ENUM
-    ('draft', 'pending_approval', 'approved', 'rejected', 'retired');         -- MRM states
+DO $$ BEGIN
+    CREATE TYPE intelligence.envelope_status AS ENUM
+    ('draft', 'pending_approval', 'approved', 'rejected', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;         -- MRM states
 
-CREATE TYPE intelligence.lifecycle_status AS ENUM
-    ('draft', 'active', 'retired');                                           -- templates / mappings / models
+DO $$ BEGIN
+    CREATE TYPE intelligence.lifecycle_status AS ENUM
+    ('draft', 'active', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;                                           -- templates / mappings / models
 
 -- ---------------------------------------------------------------------
 -- Skill registry
 -- ---------------------------------------------------------------------
-CREATE TYPE intelligence.definition_kind AS ENUM ('skill', 'content_schema', 'calibrator');
-CREATE TYPE intelligence.definition_status AS ENUM ('draft', 'observed', 'operational', 'deprecated', 'retired');
-CREATE TYPE intelligence.definition_mrm_status AS ENUM ('pending', 'approved', 'rejected', 'exempt');
+DO $$ BEGIN
+    CREATE TYPE intelligence.definition_kind AS ENUM ('skill', 'content_schema', 'calibrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE intelligence.definition_status AS ENUM ('draft', 'observed', 'operational', 'deprecated', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE intelligence.definition_mrm_status AS ENUM ('pending', 'approved', 'rejected', 'exempt');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------
 -- Training data (a dataset does not run: no `observed` state)
 -- ---------------------------------------------------------------------
-CREATE TYPE intelligence.trn_dataset_status AS ENUM ('draft', 'frozen', 'attested', 'operational', 'retired');
-CREATE TYPE intelligence.trn_dataset_purpose AS ENUM ('training', 'evaluation');
-CREATE TYPE intelligence.trn_sample_status AS ENUM ('candidate', 'accepted', 'retired');
-CREATE TYPE intelligence.trn_load_path AS ENUM ('review_correction', 'sme_authoring', 'bulk_import');
-CREATE TYPE intelligence.trn_run_status AS ENUM ('initiated', 'training', 'evaluating', 'registered', 'failed');
+DO $$ BEGIN
+    CREATE TYPE intelligence.trn_dataset_status AS ENUM ('draft', 'frozen', 'attested', 'operational', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE intelligence.trn_dataset_purpose AS ENUM ('training', 'evaluation');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE intelligence.trn_sample_status AS ENUM ('candidate', 'accepted', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE intelligence.trn_load_path AS ENUM ('review_correction', 'sme_authoring', 'bulk_import');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+    CREATE TYPE intelligence.trn_run_status AS ENUM ('initiated', 'training', 'evaluating', 'registered', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

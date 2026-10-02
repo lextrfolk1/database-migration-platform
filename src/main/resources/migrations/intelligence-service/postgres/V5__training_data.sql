@@ -13,7 +13,7 @@
 --  * AI_PROHIBITED never enters, and RESTRICTED/MNPI only masked (OPA-TDM-001/002 backstop).
 -- =============================================================================
 
-CREATE TABLE intelligence.training_dataset (
+CREATE TABLE IF NOT EXISTS intelligence.training_dataset (
     id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id               text NOT NULL,
     dataset_key             text NOT NULL,
@@ -43,17 +43,17 @@ CREATE TABLE intelligence.training_dataset (
 );
 
 -- ONE open draft per key
-CREATE UNIQUE INDEX trn_dataset_draft_uq
+CREATE UNIQUE INDEX IF NOT EXISTS trn_dataset_draft_uq
     ON intelligence.training_dataset (client_id, dataset_key) WHERE status = 'draft';
 
 -- The designated-inbox coordinate; purpose is IN the key, so a corpus and its exam may share axes.
-CREATE UNIQUE INDEX trn_dataset_axes_uq
+CREATE UNIQUE INDEX IF NOT EXISTS trn_dataset_axes_uq
     ON intelligence.training_dataset (client_id, use_case, task, report_type, purpose) NULLS NOT DISTINCT
     WHERE status = 'draft';
 
-CREATE INDEX trn_dataset_status_idx ON intelligence.training_dataset (client_id, status);
+CREATE INDEX IF NOT EXISTS trn_dataset_status_idx ON intelligence.training_dataset (client_id, status);
 
-CREATE TABLE intelligence.training_sample (
+CREATE TABLE IF NOT EXISTS intelligence.training_sample (
     id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id               text NOT NULL,
     dataset_id              bigint NOT NULL REFERENCES intelligence.training_dataset (id),
@@ -78,11 +78,11 @@ CREATE TABLE intelligence.training_sample (
     )
 );
 
-CREATE INDEX trn_sample_dataset_idx ON intelligence.training_sample (dataset_id, status);
-CREATE INDEX trn_sample_hash_idx ON intelligence.training_sample (client_id, payload_hash);
+CREATE INDEX IF NOT EXISTS trn_sample_dataset_idx ON intelligence.training_sample (dataset_id, status);
+CREATE INDEX IF NOT EXISTS trn_sample_hash_idx ON intelligence.training_sample (client_id, payload_hash);
 
 -- What a sample was grounded on, and at which version - anchor freshness is dataset HEALTH.
-CREATE TABLE intelligence.training_sample_anchor (
+CREATE TABLE IF NOT EXISTS intelligence.training_sample_anchor (
     id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     sample_id               bigint NOT NULL REFERENCES intelligence.training_sample (id),
     anchor_kind             text NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE intelligence.training_sample_anchor (
     CONSTRAINT trn_anchor_uq UNIQUE (sample_id, anchor_kind, anchor_ref)
 );
 
-CREATE TABLE intelligence.training_run (
+CREATE TABLE IF NOT EXISTS intelligence.training_run (
     id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id               text NOT NULL,
     run_key                 text NOT NULL,
@@ -121,5 +121,5 @@ CREATE TABLE intelligence.training_run (
     CONSTRAINT trn_run_failed_code_chk CHECK (status <> 'failed' OR failure_code IS NOT NULL)
 );
 
-CREATE INDEX trn_run_dataset_idx ON intelligence.training_run (client_id, dataset_id);
-CREATE INDEX trn_run_status_idx ON intelligence.training_run (client_id, status);
+CREATE INDEX IF NOT EXISTS trn_run_dataset_idx ON intelligence.training_run (client_id, dataset_id);
+CREATE INDEX IF NOT EXISTS trn_run_status_idx ON intelligence.training_run (client_id, status);

@@ -17,7 +17,7 @@
 -- ---------------------------------------------------------------------
 -- reporting_cycle - close is an attestation, reopen carries its reason
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.reporting_cycle (
+CREATE TABLE IF NOT EXISTS intelligence.reporting_cycle (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     cycle_key VARCHAR(64) NOT NULL,
@@ -38,12 +38,12 @@ CREATE TABLE intelligence.reporting_cycle (
     CONSTRAINT rpt_cycle_status_chk CHECK (status IN ('open', 'detect', 'analyse', 'closed', 'reopened'))
 );
 
-CREATE INDEX rpt_cycle_client_idx ON intelligence.reporting_cycle (client_id, status);
+CREATE INDEX IF NOT EXISTS rpt_cycle_client_idx ON intelligence.reporting_cycle (client_id, status);
 
 -- ---------------------------------------------------------------------
 -- materiality_threshold - immutable and effective-dated
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.materiality_threshold (
+CREATE TABLE IF NOT EXISTS intelligence.materiality_threshold (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     specificity_tier VARCHAR(32) NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE intelligence.materiality_threshold (
     CONSTRAINT mat_thresh_spec_tier_chk CHECK (specificity_tier IN ('mdrm', 'schedule', 'report', 'below_threshold'))
 );
 
-CREATE INDEX mat_thresh_lookup_idx ON intelligence.materiality_threshold (
+CREATE INDEX IF NOT EXISTS mat_thresh_lookup_idx ON intelligence.materiality_threshold (
     client_id, specificity_tier, specificity_key, effective_from, effective_to
 );
 
@@ -76,7 +76,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_mat_thresh_immutable
+CREATE OR REPLACE TRIGGER trg_mat_thresh_immutable
 BEFORE UPDATE OR DELETE ON intelligence.materiality_threshold
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_materiality_threshold_immutable();
 
@@ -84,7 +84,7 @@ FOR EACH ROW EXECUTE FUNCTION intelligence.fn_materiality_threshold_immutable();
 -- agent_run - one row per Intelligence call: run header + review outcome.
 -- part1_context stores MASKED/structured context only.
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run (
     id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     run_id              text NOT NULL,              -- human-readable, e.g. 'run_20250527_001'
     client_id           text NOT NULL,
@@ -182,26 +182,26 @@ CREATE TABLE intelligence.agent_run (
     CONSTRAINT fk_agent_run_client_tenant FOREIGN KEY (client_id)
         REFERENCES intelligence.tenant_profile (tenant_id) ON DELETE RESTRICT
 );
-CREATE INDEX agent_run_status_idx ON intelligence.agent_run (client_id, status);
-CREATE INDEX agent_run_preset_idx ON intelligence.agent_run (preset_id);
-CREATE INDEX agent_run_parent_idx ON intelligence.agent_run (parent_run_id);
-CREATE INDEX agent_run_cycle_idx ON intelligence.agent_run (client_id, cycle_id);
-CREATE INDEX agent_run_rerun_lineage_idx
+CREATE INDEX IF NOT EXISTS agent_run_status_idx ON intelligence.agent_run (client_id, status);
+CREATE INDEX IF NOT EXISTS agent_run_preset_idx ON intelligence.agent_run (preset_id);
+CREATE INDEX IF NOT EXISTS agent_run_parent_idx ON intelligence.agent_run (parent_run_id);
+CREATE INDEX IF NOT EXISTS agent_run_cycle_idx ON intelligence.agent_run (client_id, cycle_id);
+CREATE INDEX IF NOT EXISTS agent_run_rerun_lineage_idx
     ON intelligence.agent_run (rerun_lineage_run_id)
     WHERE rerun_lineage_run_id IS NOT NULL;
-CREATE INDEX idx_agent_run_analytical_cat
+CREATE INDEX IF NOT EXISTS idx_agent_run_analytical_cat
     ON intelligence.agent_run (client_id, use_case, catalog_state)
     WHERE use_case = 'UC10';
 -- the stranded-completed sweep scans (client_id, status, updated_at)
-CREATE INDEX agent_run_status_updated_idx
+CREATE INDEX IF NOT EXISTS agent_run_status_updated_idx
     ON intelligence.agent_run (client_id, status, updated_at, id);
-CREATE INDEX agent_run_cycle_line_idx
+CREATE INDEX IF NOT EXISTS agent_run_cycle_line_idx
     ON intelligence.agent_run (client_id, cycle_id, ((variance_explanation -> 'subject' ->> 'mdrm_id')))
     WHERE cycle_id IS NOT NULL;
-CREATE INDEX agent_run_accepted_rule_idx
+CREATE INDEX IF NOT EXISTS agent_run_accepted_rule_idx
     ON intelligence.agent_run (client_id, accepted_rule_ref, accepted_rule_version)
     WHERE accepted_rule_ref IS NOT NULL;
-CREATE INDEX agent_run_authoring_session_idx
+CREATE INDEX IF NOT EXISTS agent_run_authoring_session_idx
     ON intelligence.agent_run (client_id, authoring_session_ref, created_at)
     WHERE authoring_session_ref IS NOT NULL;
 
@@ -229,7 +229,7 @@ COMMENT ON COLUMN intelligence.agent_run.catalog_profile IS 'UC10 catalog profil
 -- agent_run_step - the per-step evidence ledger (fenced and chained in V6)
 -- Payload availability: INLINE (input set), ARCHIVED (payload_ref + payload_hash), NO_PAYLOAD.
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run_step (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run_step (
     id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     trace_id           text NOT NULL,
     run_id             bigint NOT NULL REFERENCES intelligence.agent_run (id) ON DELETE CASCADE,
@@ -291,11 +291,11 @@ CREATE TABLE intelligence.agent_run_step (
     CONSTRAINT agent_run_step_kind_chk CHECK (
         step_kind IS NULL OR step_kind IN ('PLAN', 'TOOL', 'MODEL', 'TRAVERSAL', 'DENIAL', 'ASSEMBLY'))
 );
-CREATE INDEX agent_run_step_run_idx   ON intelligence.agent_run_step (run_id);
-CREATE INDEX agent_run_step_trace_idx ON intelligence.agent_run_step (trace_id);
-CREATE INDEX idx_agent_run_step_tenant ON intelligence.agent_run_step(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS agent_run_step_run_idx   ON intelligence.agent_run_step (run_id);
+CREATE INDEX IF NOT EXISTS agent_run_step_trace_idx ON intelligence.agent_run_step (trace_id);
+CREATE INDEX IF NOT EXISTS idx_agent_run_step_tenant ON intelligence.agent_run_step(tenant_id, created_at DESC);
 -- a plan is step ZERO and there is exactly one per run
-CREATE UNIQUE INDEX agent_run_step_one_plan_uq
+CREATE UNIQUE INDEX IF NOT EXISTS agent_run_step_one_plan_uq
     ON intelligence.agent_run_step (client_id, run_id) WHERE step_kind = 'PLAN';
 
 COMMENT ON TABLE intelligence.agent_run_step IS 'Per-step evidence ledger (MRM explainability artifact). The full trace is written before any output surfaces to a human reviewer.';
@@ -308,10 +308,12 @@ COMMENT ON COLUMN intelligence.agent_run_step.payload_classification IS 'Per-obj
 COMMENT ON COLUMN intelligence.agent_run_step.model_input_classification IS 'Per-object data classification for model prompt input.';
 
 -- Dormant RLS policies (RLS is disabled; isolation is enforced in OPA)
+DROP POLICY IF EXISTS rls_agent_run_step_select ON intelligence.agent_run_step;
 CREATE POLICY rls_agent_run_step_select ON intelligence.agent_run_step
     FOR SELECT
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE));
 
+DROP POLICY IF EXISTS rls_agent_run_step_insert ON intelligence.agent_run_step;
 CREATE POLICY rls_agent_run_step_insert ON intelligence.agent_run_step
     FOR INSERT
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE));
@@ -319,7 +321,7 @@ CREATE POLICY rls_agent_run_step_insert ON intelligence.agent_run_step
 -- ---------------------------------------------------------------------
 -- agent_run_resolved_value - domain-value resolution provenance (UC10)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run_resolved_value (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run_resolved_value (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
@@ -367,17 +369,17 @@ CREATE TABLE intelligence.agent_run_resolved_value (
     )
 );
 
-CREATE INDEX idx_resolved_val_step
+CREATE INDEX IF NOT EXISTS idx_resolved_val_step
     ON intelligence.agent_run_resolved_value (client_id, run_id, step_number);
 
-CREATE INDEX idx_resolved_val_ungoverned
+CREATE INDEX IF NOT EXISTS idx_resolved_val_ungoverned
     ON intelligence.agent_run_resolved_value (client_id, domain_key)
     WHERE resolution_basis != 'GOVERNED';
 
 -- ---------------------------------------------------------------------
 -- agent_run_kg_traversal - KG traversal evidence per step
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run_kg_traversal (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run_kg_traversal (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
@@ -417,17 +419,17 @@ CREATE TABLE intelligence.agent_run_kg_traversal (
     )
 );
 
-CREATE INDEX idx_kg_traversal_step
+CREATE INDEX IF NOT EXISTS idx_kg_traversal_step
     ON intelligence.agent_run_kg_traversal (client_id, run_id, step_number);
 
-CREATE INDEX idx_kg_traversal_snapshot
+CREATE INDEX IF NOT EXISTS idx_kg_traversal_snapshot
     ON intelligence.agent_run_kg_traversal (client_id, snapshot_id)
     WHERE snapshot_id IS NOT NULL;
 
 -- ---------------------------------------------------------------------
 -- agent_run_review_event - review-side event log, one ENQUEUED event per run
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run_review_event (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run_review_event (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id   text NOT NULL,
     run_id      bigint NOT NULL,
@@ -447,11 +449,11 @@ CREATE TABLE intelligence.agent_run_review_event (
         CHECK (actor_type <> 'SYSTEM' OR action IS NULL OR action NOT IN ('ACCEPT', 'CORRECT', 'REJECT'))
 );
 
-CREATE UNIQUE INDEX agent_run_review_event_enqueued_uq
+CREATE UNIQUE INDEX IF NOT EXISTS agent_run_review_event_enqueued_uq
     ON intelligence.agent_run_review_event (client_id, run_id)
     WHERE event_type = 'ENQUEUED';
 
-CREATE INDEX agent_run_review_event_run_idx
+CREATE INDEX IF NOT EXISTS agent_run_review_event_run_idx
     ON intelligence.agent_run_review_event (client_id, run_id, created_at);
 
 COMMENT ON TABLE intelligence.agent_run_review_event IS
@@ -514,7 +516,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_reporting_cycle_close_guard
+CREATE OR REPLACE TRIGGER trg_reporting_cycle_close_guard
 BEFORE UPDATE ON intelligence.reporting_cycle
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_reporting_cycle_close_guard();
 
@@ -522,7 +524,7 @@ FOR EACH ROW EXECUTE FUNCTION intelligence.fn_reporting_cycle_close_guard();
 -- Population reconciliation (LP-50). Populations are identifier lists, never
 -- counts; NOT_AVAILABLE yields FALSE on all five generated gates by construction.
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.reported_inventory_receipt (
+CREATE TABLE IF NOT EXISTS intelligence.reported_inventory_receipt (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     report_id VARCHAR(128) NOT NULL,
@@ -537,7 +539,7 @@ CREATE TABLE intelligence.reported_inventory_receipt (
     CONSTRAINT uq_reported_inventory_receipt UNIQUE (client_id, report_id, version)
 );
 
-CREATE TABLE intelligence.population_reconciliation (
+CREATE TABLE IF NOT EXISTS intelligence.population_reconciliation (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     cycle_id VARCHAR(128) NOT NULL,
@@ -634,8 +636,8 @@ CREATE TABLE intelligence.population_reconciliation (
         REFERENCES intelligence.reported_inventory_receipt (id)
 );
 
-CREATE INDEX idx_pop_reconciliation_client_cycle
+CREATE INDEX IF NOT EXISTS idx_pop_reconciliation_client_cycle
     ON intelligence.population_reconciliation (client_id, cycle_id);
 
-CREATE INDEX idx_pop_reconciliation_report
+CREATE INDEX IF NOT EXISTS idx_pop_reconciliation_report
     ON intelligence.population_reconciliation (client_id, report_id, version);

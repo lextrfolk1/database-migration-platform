@@ -13,7 +13,7 @@
 -- ---------------------------------------------------------------------
 -- Tenancy
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.tenant_profile (
+CREATE TABLE IF NOT EXISTS intelligence.tenant_profile (
     tenant_id VARCHAR(64) PRIMARY KEY,
     org_name VARCHAR(255) NOT NULL,
     tier VARCHAR(32) NOT NULL DEFAULT 'ENTERPRISE',
@@ -23,7 +23,7 @@ CREATE TABLE intelligence.tenant_profile (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE intelligence.tenant_membership (
+CREATE TABLE IF NOT EXISTS intelligence.tenant_membership (
     membership_id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE CASCADE,
     user_id VARCHAR(64) NOT NULL,
@@ -32,12 +32,12 @@ CREATE TABLE intelligence.tenant_membership (
     CONSTRAINT uk_tenant_user UNIQUE (tenant_id, user_id)
 );
 
-CREATE INDEX idx_tenant_profile_status ON intelligence.tenant_profile(status);
-CREATE INDEX idx_tenant_membership_user ON intelligence.tenant_membership(user_id);
-CREATE INDEX idx_tenant_membership_tenant ON intelligence.tenant_membership(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_profile_status ON intelligence.tenant_profile(status);
+CREATE INDEX IF NOT EXISTS idx_tenant_membership_user ON intelligence.tenant_membership(user_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_membership_tenant ON intelligence.tenant_membership(tenant_id);
 
 -- ABAC attribute store - per-user per-tenant role/attribute binding
-CREATE TABLE intelligence.abac_attribute_binding (
+CREATE TABLE IF NOT EXISTS intelligence.abac_attribute_binding (
     binding_id      VARCHAR(64) PRIMARY KEY,
     tenant_id       VARCHAR(64) NOT NULL REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE CASCADE,
     user_id         VARCHAR(64) NOT NULL,
@@ -49,11 +49,11 @@ CREATE TABLE intelligence.abac_attribute_binding (
     CONSTRAINT uk_abac_user_attr UNIQUE (tenant_id, user_id, attribute_key)
 );
 
-CREATE INDEX idx_abac_tenant_user ON intelligence.abac_attribute_binding(tenant_id, user_id);
-CREATE INDEX idx_abac_expires     ON intelligence.abac_attribute_binding(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_abac_tenant_user ON intelligence.abac_attribute_binding(tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_abac_expires     ON intelligence.abac_attribute_binding(expires_at) WHERE expires_at IS NOT NULL;
 
 -- Per-tenant encryption key references (key material is never stored)
-CREATE TABLE intelligence.tenant_key_registry (
+CREATE TABLE IF NOT EXISTS intelligence.tenant_key_registry (
     key_id          VARCHAR(64) PRIMARY KEY,
     tenant_id       VARCHAR(64) NOT NULL REFERENCES intelligence.tenant_profile(tenant_id) ON DELETE CASCADE,
     key_alias       VARCHAR(128) NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE intelligence.tenant_key_registry (
     CONSTRAINT uk_tenant_key_alias UNIQUE (tenant_id, key_alias)
 );
 
-CREATE INDEX idx_tenant_key_status ON intelligence.tenant_key_registry(tenant_id, key_status);
+CREATE INDEX IF NOT EXISTS idx_tenant_key_status ON intelligence.tenant_key_registry(tenant_id, key_status);
 
 COMMENT ON TABLE intelligence.tenant_key_registry IS
     'Cryptographic key registry for per-tenant envelope encryption. '
@@ -76,7 +76,7 @@ COMMENT ON TABLE intelligence.tenant_key_registry IS
 -- resolution and the three-tier routing. '__platform__' = Tier-1 defaults.
 -- trained_on_dataset_* has NO foreign key, deliberately (a base model carries no dataset).
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.model_registry (
+CREATE TABLE IF NOT EXISTS intelligence.model_registry (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id       text NOT NULL,
     tier            intelligence.model_tier NOT NULL DEFAULT 'tenant',
@@ -101,17 +101,17 @@ CREATE TABLE intelligence.model_registry (
     CONSTRAINT model_registry_uq UNIQUE (client_id, model_type, model_id)
 );
 -- At most one default per (tenant, model_type)
-CREATE UNIQUE INDEX model_registry_one_default_uq
+CREATE UNIQUE INDEX IF NOT EXISTS model_registry_one_default_uq
     ON intelligence.model_registry (client_id, model_type)
     WHERE is_default;
-CREATE INDEX model_registry_client_idx ON intelligence.model_registry (client_id, model_type);
+CREATE INDEX IF NOT EXISTS model_registry_client_idx ON intelligence.model_registry (client_id, model_type);
 
 COMMENT ON COLUMN intelligence.model_registry.is_local IS 'False blocks external model calls for MNPI/RESTRICTED data and on-prem deployments (OPA-enforced). True (local SLM) always permitted.';
 
 -- ---------------------------------------------------------------------
 -- prompt_template - versioned model-instruction templates
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.prompt_template (
+CREATE TABLE IF NOT EXISTS intelligence.prompt_template (
     id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id     text NOT NULL,
     template_key  text NOT NULL,
@@ -126,13 +126,13 @@ CREATE TABLE intelligence.prompt_template (
     updated_at    timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT prompt_template_uq UNIQUE (client_id, template_key, version)
 );
-CREATE INDEX prompt_template_task_idx ON intelligence.prompt_template (client_id, task, report_type);
+CREATE INDEX IF NOT EXISTS prompt_template_task_idx ON intelligence.prompt_template (client_id, task, report_type);
 
 -- ---------------------------------------------------------------------
 -- governance_envelope - MRM-approved envelope a preset lives inside.
 -- Only OPA binding REFERENCES are stored; the Rego lives in OPA.
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.governance_envelope (
+CREATE TABLE IF NOT EXISTS intelligence.governance_envelope (
     id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id            text NOT NULL,
     envelope_key         text NOT NULL,
@@ -151,14 +151,14 @@ CREATE TABLE intelligence.governance_envelope (
     updated_at           timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT governance_envelope_uq UNIQUE (client_id, envelope_key, version)
 );
-CREATE INDEX governance_envelope_status_idx ON intelligence.governance_envelope (client_id, status);
+CREATE INDEX IF NOT EXISTS governance_envelope_status_idx ON intelligence.governance_envelope (client_id, status);
 
 COMMENT ON COLUMN intelligence.governance_envelope.opa_policy_bindings IS 'Reference to OPA policy packages/ids only. Rego policy is externalized in OPA, never stored in the DB.';
 
 -- ---------------------------------------------------------------------
 -- preset - packaged expert knowledge for a task x report-type
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.preset (
+CREATE TABLE IF NOT EXISTS intelligence.preset (
     id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id            text NOT NULL,
     preset_key           text NOT NULL,
@@ -192,12 +192,12 @@ CREATE TABLE intelligence.preset (
     CONSTRAINT fk_preset_client_tenant FOREIGN KEY (client_id)
         REFERENCES intelligence.tenant_profile (tenant_id) ON DELETE RESTRICT
 );
-CREATE INDEX preset_axis_idx     ON intelligence.preset (client_id, task, report_type);
-CREATE INDEX preset_envelope_idx ON intelligence.preset (envelope_id);
-CREATE INDEX preset_status_idx   ON intelligence.preset (client_id, status);
+CREATE INDEX IF NOT EXISTS preset_axis_idx     ON intelligence.preset (client_id, task, report_type);
+CREATE INDEX IF NOT EXISTS preset_envelope_idx ON intelligence.preset (envelope_id);
+CREATE INDEX IF NOT EXISTS preset_status_idx   ON intelligence.preset (client_id, status);
 
 -- At most ONE operational preset per (client_id, task, report_type) axis
-CREATE UNIQUE INDEX preset_operational_axis_uq
+CREATE UNIQUE INDEX IF NOT EXISTS preset_operational_axis_uq
     ON intelligence.preset (client_id, task, report_type)
     NULLS NOT DISTINCT
     WHERE status = 'operational';
@@ -208,7 +208,7 @@ COMMENT ON INDEX intelligence.preset_operational_axis_uq IS
 -- ---------------------------------------------------------------------
 -- registered_definition - skill / content schema / calibrator registry
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.registered_definition (
+CREATE TABLE IF NOT EXISTS intelligence.registered_definition (
     id BIGSERIAL PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     kind intelligence.definition_kind NOT NULL DEFAULT 'skill',
@@ -256,18 +256,18 @@ COMMENT ON COLUMN intelligence.registered_definition.version IS 'Semantic versio
 COMMENT ON COLUMN intelligence.registered_definition.status IS 'Lifecycle state: draft, observed, operational, deprecated, retired';
 COMMENT ON COLUMN intelligence.registered_definition.mrm_status IS 'Model Risk Management review status';
 
-CREATE INDEX idx_reg_def_client_kind ON intelligence.registered_definition (client_id, kind);
-CREATE INDEX idx_reg_def_key ON intelligence.registered_definition (definition_key);
-CREATE INDEX idx_reg_def_status ON intelligence.registered_definition (status);
-CREATE INDEX idx_reg_def_mrm_status ON intelligence.registered_definition (mrm_status);
-CREATE INDEX idx_reg_def_domain ON intelligence.registered_definition (domain);
-CREATE INDEX idx_reg_def_capability ON intelligence.registered_definition (capability);
-CREATE INDEX idx_reg_def_report_fam ON intelligence.registered_definition (report_family);
+CREATE INDEX IF NOT EXISTS idx_reg_def_client_kind ON intelligence.registered_definition (client_id, kind);
+CREATE INDEX IF NOT EXISTS idx_reg_def_key ON intelligence.registered_definition (definition_key);
+CREATE INDEX IF NOT EXISTS idx_reg_def_status ON intelligence.registered_definition (status);
+CREATE INDEX IF NOT EXISTS idx_reg_def_mrm_status ON intelligence.registered_definition (mrm_status);
+CREATE INDEX IF NOT EXISTS idx_reg_def_domain ON intelligence.registered_definition (domain);
+CREATE INDEX IF NOT EXISTS idx_reg_def_capability ON intelligence.registered_definition (capability);
+CREATE INDEX IF NOT EXISTS idx_reg_def_report_fam ON intelligence.registered_definition (report_family);
 
 -- ---------------------------------------------------------------------
 -- calibration_threshold - governed, immutable (superseded, never updated)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.calibration_threshold (
+CREATE TABLE IF NOT EXISTS intelligence.calibration_threshold (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     threshold_key VARCHAR(64) NOT NULL,
@@ -289,12 +289,12 @@ CREATE TABLE intelligence.calibration_threshold (
     CONSTRAINT chk_cal_thresh_key CHECK (threshold_key IN ('observation_floor', 'absolute_promotion_threshold', 'relative_promotion_threshold'))
 );
 
-CREATE INDEX idx_cal_thresh_lookup ON intelligence.calibration_threshold (
+CREATE INDEX IF NOT EXISTS idx_cal_thresh_lookup ON intelligence.calibration_threshold (
     client_id, threshold_key, effective_from, effective_to
 );
 
 -- At most one active threshold per client and key
-CREATE UNIQUE INDEX uq_cal_thresh_active ON intelligence.calibration_threshold (
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cal_thresh_active ON intelligence.calibration_threshold (
     client_id, threshold_key
 ) WHERE effective_to IS NULL;
 
@@ -310,6 +310,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_cal_thresh_immutable
+CREATE OR REPLACE TRIGGER trg_cal_thresh_immutable
 BEFORE UPDATE OR DELETE ON intelligence.calibration_threshold
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_calibration_threshold_immutable();

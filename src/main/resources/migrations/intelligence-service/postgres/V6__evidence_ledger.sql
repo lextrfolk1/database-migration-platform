@@ -24,7 +24,7 @@
 -- ---------------------------------------------------------------------
 -- Merkle tree audit ledger (LP-25.1)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.merkle_tree_ledger (
+CREATE TABLE IF NOT EXISTS intelligence.merkle_tree_ledger (
     id BIGSERIAL PRIMARY KEY,
     tree_id VARCHAR(64) NOT NULL UNIQUE,
     client_id VARCHAR(64) NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE intelligence.merkle_tree_ledger (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE intelligence.merkle_tree_node (
+CREATE TABLE IF NOT EXISTS intelligence.merkle_tree_node (
     id BIGSERIAL PRIMARY KEY,
     tree_id VARCHAR(64) NOT NULL REFERENCES intelligence.merkle_tree_ledger(tree_id) ON DELETE CASCADE,
     node_hash VARCHAR(64) NOT NULL,
@@ -52,15 +52,15 @@ CREATE TABLE intelligence.merkle_tree_node (
     CONSTRAINT uq_merkle_node_pos UNIQUE (tree_id, level, position)
 );
 
-CREATE INDEX idx_merkle_tree_client ON intelligence.merkle_tree_ledger(client_id);
-CREATE INDEX idx_merkle_tree_root ON intelligence.merkle_tree_ledger(root_hash);
-CREATE INDEX idx_merkle_node_tree_pos ON intelligence.merkle_tree_node(tree_id, level, position);
-CREATE INDEX idx_merkle_node_leaf_run ON intelligence.merkle_tree_node(leaf_run_id);
+CREATE INDEX IF NOT EXISTS idx_merkle_tree_client ON intelligence.merkle_tree_ledger(client_id);
+CREATE INDEX IF NOT EXISTS idx_merkle_tree_root ON intelligence.merkle_tree_ledger(root_hash);
+CREATE INDEX IF NOT EXISTS idx_merkle_node_tree_pos ON intelligence.merkle_tree_node(tree_id, level, position);
+CREATE INDEX IF NOT EXISTS idx_merkle_node_leaf_run ON intelligence.merkle_tree_node(leaf_run_id);
 
 -- ---------------------------------------------------------------------
 -- evidence_store_record - multi-layer tamper-evident record (LP-26.1)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.evidence_store_record (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_store_record (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     evidence_id VARCHAR(64) NOT NULL UNIQUE,
     client_id VARCHAR(64) NOT NULL,
@@ -76,19 +76,19 @@ CREATE TABLE intelligence.evidence_store_record (
     CONSTRAINT uk_evidence_run_step UNIQUE (run_id, step_number)
 );
 
-CREATE INDEX idx_evidence_client_run
+CREATE INDEX IF NOT EXISTS idx_evidence_client_run
     ON intelligence.evidence_store_record (client_id, run_id, step_number);
 
-CREATE INDEX idx_evidence_chain_hash
+CREATE INDEX IF NOT EXISTS idx_evidence_chain_hash
     ON intelligence.evidence_store_record (cumulative_chain_hash);
 
-CREATE INDEX idx_evidence_created
+CREATE INDEX IF NOT EXISTS idx_evidence_created
     ON intelligence.evidence_store_record (client_id, created_at DESC);
 
 -- ---------------------------------------------------------------------
 -- evidence_chain - the chain-day head table (head_signature for an external notary)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.evidence_chain (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_chain (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     scope_kind VARCHAR(64) NOT NULL,
@@ -107,7 +107,7 @@ CREATE TABLE intelligence.evidence_chain (
 -- evidence_notarization - witnessed segment receipts; chain_discontinuity -
 -- explicable disruptions (restore, failover, partition) with actor and reason (LP-49.1)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.evidence_notarization (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_notarization (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     scope_kind VARCHAR(64) NOT NULL,
@@ -139,13 +139,13 @@ CREATE TABLE intelligence.evidence_notarization (
     CONSTRAINT uq_evidence_notarization_receipt UNIQUE (client_id, receipt_hash)
 );
 
-CREATE INDEX idx_evidence_notarization_scope
+CREATE INDEX IF NOT EXISTS idx_evidence_notarization_scope
     ON intelligence.evidence_notarization (client_id, scope_kind, scope_id);
 
-CREATE INDEX idx_evidence_notarization_days
+CREATE INDEX IF NOT EXISTS idx_evidence_notarization_days
     ON intelligence.evidence_notarization (client_id, segment_from_day, segment_to_day);
 
-CREATE TABLE intelligence.chain_discontinuity (
+CREATE TABLE IF NOT EXISTS intelligence.chain_discontinuity (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id VARCHAR(64) NOT NULL,
     scope_kind VARCHAR(64) NOT NULL,
@@ -175,12 +175,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_evidence_notarization_no_modify
+CREATE OR REPLACE TRIGGER trg_evidence_notarization_no_modify
     BEFORE UPDATE OR DELETE ON intelligence.evidence_notarization
     FOR EACH ROW
     EXECUTE FUNCTION intelligence.fn_prevent_evidence_modification();
 
-CREATE TRIGGER trg_evidence_store_no_modify
+CREATE OR REPLACE TRIGGER trg_evidence_store_no_modify
     BEFORE UPDATE OR DELETE ON intelligence.evidence_store_record
     FOR EACH ROW
     EXECUTE FUNCTION intelligence.fn_prevent_evidence_modification();
@@ -260,16 +260,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_evidence_chain_head_monotonic
+CREATE OR REPLACE TRIGGER trg_evidence_chain_head_monotonic
 BEFORE UPDATE OR DELETE ON intelligence.evidence_chain
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_head_monotonic();
 
 -- agent_run_step (table in V4) is chained and fenced
-CREATE TRIGGER trg_agent_run_step_chain
+CREATE OR REPLACE TRIGGER trg_agent_run_step_chain
 BEFORE INSERT ON intelligence.agent_run_step
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
 
-CREATE TRIGGER trg_agent_run_step_fence
+CREATE OR REPLACE TRIGGER trg_agent_run_step_fence
 BEFORE UPDATE OR DELETE ON intelligence.agent_run_step
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
 
@@ -277,7 +277,7 @@ FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
 -- agent_run_event - the estate ledger: governance decisions + header history.
 -- Record First, Apply Second: a refusal has NO destination. Closed action vocabulary.
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run_event (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run_event (
     id BIGSERIAL PRIMARY KEY,
     event_id VARCHAR(64) NOT NULL UNIQUE,
     client_id VARCHAR(64) NOT NULL,
@@ -322,13 +322,13 @@ CREATE TABLE intelligence.agent_run_event (
         ))
 );
 
-CREATE INDEX idx_agent_run_event_tenant_subject
+CREATE INDEX IF NOT EXISTS idx_agent_run_event_tenant_subject
     ON intelligence.agent_run_event (client_id, subject_id, subject_kind);
 
-CREATE INDEX idx_agent_run_event_capability_track
+CREATE INDEX IF NOT EXISTS idx_agent_run_event_capability_track
     ON intelligence.agent_run_event (client_id, capability, track);
 
-CREATE INDEX idx_agent_run_event_estate_seq
+CREATE INDEX IF NOT EXISTS idx_agent_run_event_estate_seq
     ON intelligence.agent_run_event (estate_seq ASC);
 
 CREATE OR REPLACE FUNCTION intelligence.fn_agent_run_event_immutability()
@@ -345,12 +345,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_agent_run_event_immutable
+CREATE OR REPLACE TRIGGER trg_agent_run_event_immutable
 BEFORE UPDATE OR DELETE ON intelligence.agent_run_event
 FOR EACH ROW
 EXECUTE FUNCTION intelligence.fn_agent_run_event_immutability();
 
-CREATE TRIGGER trg_agent_run_event_chain BEFORE INSERT ON intelligence.agent_run_event
+CREATE OR REPLACE TRIGGER trg_agent_run_event_chain BEFORE INSERT ON intelligence.agent_run_event
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
 
 -- agent_run records EVERY header change through a trigger, not call sites
@@ -379,14 +379,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_agent_run_header_history
+CREATE OR REPLACE TRIGGER trg_agent_run_header_history
 AFTER INSERT OR UPDATE ON intelligence.agent_run
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_agent_run_header_history();
 
 -- ---------------------------------------------------------------------
 -- agent_run_anchor - four roles (asked / touched / produced / filed)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.agent_run_anchor (
+CREATE TABLE IF NOT EXISTS intelligence.agent_run_anchor (
     id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id    text NOT NULL,
     run_id       text NOT NULL,
@@ -401,17 +401,17 @@ CREATE TABLE intelligence.agent_run_anchor (
     CONSTRAINT agent_run_anchor_role_chk CHECK (role IN ('asked', 'touched', 'produced', 'filed')),
     CONSTRAINT agent_run_anchor_uq UNIQUE (client_id, run_id, anchor_kind, anchor_ref, role)
 );
-CREATE INDEX agent_run_anchor_subject_idx ON intelligence.agent_run_anchor (client_id, anchor_kind, anchor_ref);
+CREATE INDEX IF NOT EXISTS agent_run_anchor_subject_idx ON intelligence.agent_run_anchor (client_id, anchor_kind, anchor_ref);
 
-CREATE TRIGGER trg_agent_run_anchor_chain BEFORE INSERT ON intelligence.agent_run_anchor
+CREATE OR REPLACE TRIGGER trg_agent_run_anchor_chain BEFORE INSERT ON intelligence.agent_run_anchor
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
-CREATE TRIGGER trg_agent_run_anchor_fence BEFORE UPDATE OR DELETE ON intelligence.agent_run_anchor
+CREATE OR REPLACE TRIGGER trg_agent_run_anchor_fence BEFORE UPDATE OR DELETE ON intelligence.agent_run_anchor
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
 
 -- ---------------------------------------------------------------------
 -- evidence_ledger_day - the tenant-day coverage state
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.evidence_ledger_day (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_ledger_day (
     id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id    text NOT NULL,
     chain_day    date NOT NULL,
@@ -431,7 +431,7 @@ CREATE TABLE intelligence.evidence_ledger_day (
 -- ---------------------------------------------------------------------
 -- Retention (extend-only), archive receipts, ledger start marker (LP-26.8)
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.evidence_retention (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_retention (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id       text NOT NULL,
     retention_days  integer NOT NULL,
@@ -460,7 +460,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_evidence_retention_extend_only
+CREATE OR REPLACE TRIGGER trg_evidence_retention_extend_only
 BEFORE UPDATE OR DELETE ON intelligence.evidence_retention
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_retention_extend_only();
 
@@ -480,12 +480,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_evidence_retention_lowering_prospective
+CREATE OR REPLACE TRIGGER trg_evidence_retention_lowering_prospective
 BEFORE INSERT ON intelligence.evidence_retention
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_retention_lowering_prospective();
 
 -- the receipt for every lawful departure (ARCHIVED or PURGED), fenced and chained
-CREATE TABLE intelligence.evidence_archive (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_archive (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id       text NOT NULL,
     departed_day    date NOT NULL,
@@ -504,13 +504,13 @@ CREATE TABLE intelligence.evidence_archive (
     CONSTRAINT evidence_archive_uq UNIQUE (client_id, departed_day, departure)
 );
 
-CREATE TRIGGER trg_evidence_archive_chain BEFORE INSERT ON intelligence.evidence_archive
+CREATE OR REPLACE TRIGGER trg_evidence_archive_chain BEFORE INSERT ON intelligence.evidence_archive
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
-CREATE TRIGGER trg_evidence_archive_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_archive
+CREATE OR REPLACE TRIGGER trg_evidence_archive_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_archive
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
 
 -- the ledger start marker per tenant; days before it can only be ATTESTED
-CREATE TABLE intelligence.evidence_ledger_marker (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_ledger_marker (
     id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id   text NOT NULL,
     marker_day  date NOT NULL,
@@ -542,7 +542,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ---------------------------------------------------------------------
 -- A read is recorded with the entitlement decision and the POLICY VERSION that
 -- permitted it. Doors REVERSE and SEARCH are declared but unreachable today.
-CREATE TABLE intelligence.evidence_read_event (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_read_event (
     id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id          text NOT NULL,
     read_ref           text NOT NULL,
@@ -565,10 +565,10 @@ CREATE TABLE intelligence.evidence_read_event (
     CONSTRAINT evidence_read_event_decision_chk CHECK (decision IN ('ALLOW')),
     CONSTRAINT evidence_read_event_role_chk CHECK (subject_role IN ('asked', 'touched', 'produced', 'filed'))
 );
-CREATE INDEX evidence_read_event_principal_idx ON intelligence.evidence_read_event (client_id, principal, read_at);
+CREATE INDEX IF NOT EXISTS evidence_read_event_principal_idx ON intelligence.evidence_read_event (client_id, principal, read_at);
 
 -- manifest_hash / root_hash are RECORDED, never computed here; is_final is derived, not stored
-CREATE TABLE intelligence.evidence_export_pack (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_export_pack (
     id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id          text NOT NULL,
     pack_ref           text NOT NULL,
@@ -590,18 +590,18 @@ CREATE TABLE intelligence.evidence_export_pack (
     CONSTRAINT evidence_export_pack_root_chk CHECK ((root_hash IS NULL) = (chain_break_index IS NOT NULL))
 );
 
-CREATE TRIGGER trg_evidence_read_event_chain BEFORE INSERT ON intelligence.evidence_read_event
+CREATE OR REPLACE TRIGGER trg_evidence_read_event_chain BEFORE INSERT ON intelligence.evidence_read_event
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
-CREATE TRIGGER trg_evidence_read_event_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_read_event
+CREATE OR REPLACE TRIGGER trg_evidence_read_event_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_read_event
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
-CREATE TRIGGER trg_evidence_export_pack_chain BEFORE INSERT ON intelligence.evidence_export_pack
+CREATE OR REPLACE TRIGGER trg_evidence_export_pack_chain BEFORE INSERT ON intelligence.evidence_export_pack
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
-CREATE TRIGGER trg_evidence_export_pack_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_export_pack
+CREATE OR REPLACE TRIGGER trg_evidence_export_pack_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_export_pack
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
 
 -- The OBJECT is deleted outside the database and a row is APPENDED here; readers
 -- resolve availability from the later event. No agent_run_step row is changed.
-CREATE TABLE intelligence.evidence_payload_erasure (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_payload_erasure (
     id                 bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_id          text NOT NULL,
     erasure_ref        text NOT NULL,
@@ -625,16 +625,16 @@ CREATE TABLE intelligence.evidence_payload_erasure (
     CONSTRAINT evidence_payload_erasure_role_chk CHECK (subject_role IN ('asked', 'touched', 'produced', 'filed'))
 );
 
-CREATE TRIGGER trg_evidence_payload_erasure_chain BEFORE INSERT ON intelligence.evidence_payload_erasure
+CREATE OR REPLACE TRIGGER trg_evidence_payload_erasure_chain BEFORE INSERT ON intelligence.evidence_payload_erasure
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_chain_row();
-CREATE TRIGGER trg_evidence_payload_erasure_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_payload_erasure
+CREATE OR REPLACE TRIGGER trg_evidence_payload_erasure_fence BEFORE UPDATE OR DELETE ON intelligence.evidence_payload_erasure
 FOR EACH ROW EXECUTE FUNCTION intelligence.fn_evidence_fence();
 
 -- ---------------------------------------------------------------------
 -- Chain coverage: the CATALOGUE says which tables are chained and fenced; the
 -- registry (evidence_coverage, rows in V7) says which the verifier can see.
 -- ---------------------------------------------------------------------
-CREATE TABLE intelligence.evidence_coverage (
+CREATE TABLE IF NOT EXISTS intelligence.evidence_coverage (
     table_name    text PRIMARY KEY,
     registered_by text NOT NULL,
     registered_at timestamptz NOT NULL DEFAULT now()

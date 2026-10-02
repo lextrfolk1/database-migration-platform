@@ -17,7 +17,8 @@
 INSERT INTO intelligence.tenant_profile (tenant_id, org_name, tier, isolation_level, status)
 VALUES
     ('__platform__', 'Lextr Platform System', 'SYSTEM', 'ROW_LEVEL_SECURITY', 'ACTIVE'),
-    ('client_001', 'Lextr Enterprise Client 001', 'ENTERPRISE', 'ROW_LEVEL_SECURITY', 'ACTIVE');
+    ('client_001', 'Lextr Enterprise Client 001', 'ENTERPRISE', 'ROW_LEVEL_SECURITY', 'ACTIVE')
+ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- UC1a - variance_explanation x Y-9C, skill_pattern 1+3, no KG
@@ -29,7 +30,8 @@ INSERT INTO intelligence.model_registry
 VALUES ('__platform__', 'platform', 'SLM', 'Qwen3-4B', 'QLoRAChatConnector',
        'data/qlora_adapter/qwen3-4b-fry9c/final', NULL, NULL, true, true,
        '{"quantization":"4bit_nf4","lora_rank":16,"alpha":32,"temperature":0.2,"max_tokens":1024,"enable_thinking":false}'::jsonb,
-       'active', 'seed');
+       'active', 'seed')
+ON CONFLICT DO NOTHING;
 
 -- 2. Platform Tier-1 default embedder (all-MiniLM-L6-v2, 384)
 INSERT INTO intelligence.model_registry
@@ -37,7 +39,8 @@ INSERT INTO intelligence.model_registry
      embedding_model, embedding_dim, is_local, is_default, params, status, created_by)
 VALUES ('__platform__', 'platform', 'EMBEDDING', 'sentence-transformers/all-MiniLM-L6-v2',
        'MiniLMEmbeddingConnector', NULL, 'sentence-transformers/all-MiniLM-L6-v2', 384,
-       true, true, '{}'::jsonb, 'active', 'seed');
+       true, true, '{}'::jsonb, 'active', 'seed')
+ON CONFLICT DO NOTHING;
 
 -- 3. Governance envelope (MRM-approved) for variance on Y-9C; allowed model = the platform SLM
 INSERT INTO intelligence.governance_envelope
@@ -52,7 +55,8 @@ SELECT 'client_001', 'ENV_VARIANCE_Y9C', 1, 'approved',
        '{"allowed_tiers":["ALLOWED","RESTRICTED"],"excluded_never_returned":true}'::jsonb,
        '{"max_tokens_per_run":4096,"max_cost_per_run_usd":0.50}'::jsonb,
        '[{"id":"OPA-AI-001","package":"lextr.ai.model_routing"},{"id":"OPA-COST-018","package":"lextr.ai.cost_guardrails"}]'::jsonb,
-       'seed_mrm', now(), 'seed';
+       'seed_mrm', now(), 'seed'
+ON CONFLICT DO NOTHING;
 
 -- 4. Prompt template (Element 1) for variance explanation on Y-9C
 INSERT INTO intelligence.prompt_template
@@ -60,7 +64,8 @@ INSERT INTO intelligence.prompt_template
 VALUES ('client_001', 'TPL_VARIANCE_Y9C', 1, 'variance_explanation', 'Y-9C',
        'You are a regulatory reporting analyst assistant. Explain the period-over-period change in the referenced line using ONLY the masked values, complementary context, and analyst input provided. Reference entities by their placeholder tokens (e.g. {{ENTITY_1_LABEL}}); never invent figures. Cite drivers explicitly (rule change / strategy / market event) where the evidence supports them; state uncertainty otherwise.',
        '["report","schedule","mdrm","period","masked_values","complementary_context","analyst_input"]'::jsonb,
-       'active', 'seed');
+       'active', 'seed')
+ON CONFLICT DO NOTHING;
 
 -- 5. The UC1a preset - no Tier-3 model override (resolves to the platform SLM)
 INSERT INTO intelligence.preset
@@ -88,7 +93,8 @@ SELECT 'client_001', 'UC1A_VARIANCE_Y9C', 1, 'variance_explanation', 'Y-9C',
        'analyst',
        'operational',
        false,
-       'seed';
+       'seed'
+ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- The fine-tuned variance SLM (local-only; the model the variance presets pin to)
@@ -106,7 +112,8 @@ INSERT INTO intelligence.model_registry (
         'artifact_uri', 'file:///models/lextr/variance-qwen3-4b-v1'
     ),
     NULL, 'active', 'seed', now()
-);
+)
+ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- Governed calibration thresholds (observation floor, absolute, relative)
@@ -126,7 +133,8 @@ INSERT INTO intelligence.calibration_threshold (
 (
     'default', 'relative_promotion_threshold', 'numeric', 0.0500, 0.0010, 0.2000,
     'MODEL_VALIDATION', 'Calibrators exceeding relative drift threshold fail promotion.', 'system'
-);
+)
+ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- Evidence coverage registry - the chained tables the offline verifier can see
@@ -135,4 +143,5 @@ INSERT INTO intelligence.evidence_coverage (table_name, registered_by) VALUES
     ('agent_run_step', 'LP-26.1'), ('agent_run_anchor', 'LP-26.1'),
     ('evidence_archive', 'LP-26.8'), ('agent_run_event', 'LP-26.9'),
     ('evidence_read_event', 'LP-26.24'), ('evidence_export_pack', 'LP-26.24'),
-    ('evidence_payload_erasure', 'LP-26.28');
+    ('evidence_payload_erasure', 'LP-26.28')
+ON CONFLICT DO NOTHING;
