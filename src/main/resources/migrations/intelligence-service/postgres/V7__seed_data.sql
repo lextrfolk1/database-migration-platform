@@ -8,7 +8,7 @@
 --
 -- Tenants:
 --   '__platform__'  Tier-1 platform default model rows.
---   'client_001'    demo tenant carrying the UC1a envelope + preset.
+--   '1'    demo tenant carrying the UC1a envelope + preset.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------
@@ -17,7 +17,7 @@
 INSERT INTO intelligence.tenant_profile (tenant_id, org_name, tier, isolation_level, status)
 VALUES
     ('__platform__', 'Lextr Platform System', 'SYSTEM', 'ROW_LEVEL_SECURITY', 'ACTIVE'),
-    ('client_001', 'Lextr Enterprise Client 001', 'ENTERPRISE', 'ROW_LEVEL_SECURITY', 'ACTIVE')
+    ('1', 'Lextr Enterprise Client 001', 'ENTERPRISE', 'ROW_LEVEL_SECURITY', 'ACTIVE')
 ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------
@@ -47,7 +47,7 @@ INSERT INTO intelligence.governance_envelope
     (client_id, envelope_key, version, status, allowed_model_ids, prohibited_model_ids,
      mnpi_rules, data_access, cost_guardrails, opa_policy_bindings,
      mrm_approved_by, mrm_approved_at, created_by)
-SELECT 'client_001', 'ENV_VARIANCE_Y9C', 1, 'approved',
+SELECT '1', 'ENV_VARIANCE_Y9C', 1, 'approved',
        ARRAY[(SELECT id FROM intelligence.model_registry
               WHERE client_id = '__platform__' AND model_type = 'SLM' AND model_id = 'Qwen3-4B')]::bigint[],
        '{}'::bigint[],
@@ -61,7 +61,7 @@ ON CONFLICT DO NOTHING;
 -- 4. Prompt template (Element 1) for variance explanation on Y-9C
 INSERT INTO intelligence.prompt_template
     (client_id, template_key, version, task, report_type, body, variables, status, created_by)
-VALUES ('client_001', 'TPL_VARIANCE_Y9C', 1, 'variance_explanation', 'Y-9C',
+VALUES ('1', 'TPL_VARIANCE_Y9C', 1, 'variance_explanation', 'Y-9C',
        'You are a regulatory reporting analyst assistant. Explain the period-over-period change in the referenced line using ONLY the masked values, complementary context, and analyst input provided. Reference entities by their placeholder tokens (e.g. {{ENTITY_1_LABEL}}); never invent figures. Cite drivers explicitly (rule change / strategy / market event) where the evidence supports them; state uncertainty otherwise.',
        '["report","schedule","mdrm","period","masked_values","complementary_context","analyst_input"]'::jsonb,
        'active', 'seed')
@@ -74,11 +74,11 @@ INSERT INTO intelligence.preset
      guided_questions, prompt_library, model_id_override, skill_pattern,
      is_agentic, max_steps, kg_depth_default, kg_depth_max, output_type,
      review_level, status, is_global, created_by)
-SELECT 'client_001', 'UC1A_VARIANCE_Y9C', 1, 'variance_explanation', 'Y-9C',
+SELECT '1', 'UC1A_VARIANCE_Y9C', 1, 'variance_explanation', 'Y-9C',
        (SELECT id FROM intelligence.governance_envelope
-        WHERE client_id = 'client_001' AND envelope_key = 'ENV_VARIANCE_Y9C' AND version = 1),
+        WHERE client_id = '1' AND envelope_key = 'ENV_VARIANCE_Y9C' AND version = 1),
        (SELECT id FROM intelligence.prompt_template
-        WHERE client_id = 'client_001' AND template_key = 'TPL_VARIANCE_Y9C' AND version = 1),
+        WHERE client_id = '1' AND template_key = 'TPL_VARIANCE_Y9C' AND version = 1),
        NULL,
        '{"knowledge_hub_refs":[]}'::jsonb,
        '{}'::jsonb,
