@@ -132,6 +132,8 @@ Configured services:
   - `classpath:migrations/semantic-service/postgres`
 - `intelligence-service`
   - `classpath:migrations/intelligence-service/postgres`
+- `lexie-ai` (VarianceAI + Variance Knowledge Hub: `variance`, `audit` schemas)
+  - `classpath:migrations/lexie-ai/postgres`
 
 ## Flyway history isolation
 
