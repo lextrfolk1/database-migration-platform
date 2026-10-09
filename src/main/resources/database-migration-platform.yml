@@ -55,3 +55,9 @@ services:
       - target: postgres-main-dev
         locations:
           - filesystem:src/main/resources/migrations/workflow-service/postgres
+
+  lexie-ai:
+    targetMappings:
+      - target: postgres-main-dev
+        locations:
+          - filesystem:src/main/resources/migrations/lexie-ai/postgres
