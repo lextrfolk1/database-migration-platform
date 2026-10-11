@@ -1,6 +1,7 @@
 package com.lextr.migrationplatform.dao.impl;
 
 import com.lextr.migrationplatform.config.MigrationPlatformInventoryConfiguration;
+import com.lextr.migrationplatform.config.MigrationPlatformProperties;
 import com.lextr.migrationplatform.dao.ServiceInventoryDao;
 import com.lextr.migrationplatform.exception.MigrationPlatformException;
 import com.lextr.migrationplatform.exception.ServiceNotFoundException;
@@ -12,6 +13,8 @@ import com.lextr.migrationplatform.repository.PlatformConfigurationRepository;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,10 +26,13 @@ public class DefaultServiceInventoryDao implements ServiceInventoryDao {
 
     private final PlatformConfigurationRepository configurationRepository;
     private final Environment environment;
+    private final MigrationPlatformProperties properties;
 
-    public DefaultServiceInventoryDao(PlatformConfigurationRepository configurationRepository, Environment environment) {
+    public DefaultServiceInventoryDao(PlatformConfigurationRepository configurationRepository, Environment environment,
+                                      MigrationPlatformProperties properties) {
         this.configurationRepository = configurationRepository;
         this.environment = environment;
+        this.properties = properties;
     }
 
     @Override
@@ -75,13 +81,28 @@ public class DefaultServiceInventoryDao implements ServiceInventoryDao {
         List<ServiceTargetMapping> targetMappings = definition.targetMappings().stream()
                 .map(mapping -> new ServiceTargetMapping(
                         mapping.target(),
-                        mapping.locations() == null ? List.of() : List.copyOf(mapping.locations()),
+                        mapping.locations() == null ? List.of() : mapping.locations().stream().map(this::resolveLocation).toList(),
                         normalizeSchemas(mapping.schema(), mapping.schemas()),
                         mapping.historyTable(),
-                        mapping.placeholders() == null ? Map.of() : Map.copyOf(mapping.placeholders())
+                        mapping.placeholders() == null ? Map.of() : Map.copyOf(mapping.placeholders()),
+                        mapping.baselineOnMigrate()
                 ))
                 .toList();
         return new ServiceMigrationDefinition(serviceName, targetMappings);
+    }
+
+    // Locations without a classpath:/filesystem: prefix are relative to the configured migrations root.
+    private String resolveLocation(String location) {
+        if (location.startsWith("classpath:") || location.startsWith("filesystem:")) {
+            return location;
+        }
+        Path root = Path.of(properties.getMigrationsRoot());
+        if (!Files.isDirectory(root)) {
+            throw new MigrationPlatformException("Migrations root does not exist: " + root.toAbsolutePath()
+                    + " (set migration.platform.migrations-root)");
+        }
+        // Forward slashes work on every OS and avoid Windows backslashes in Flyway/Spring locations.
+        return "filesystem:" + root.resolve(location).toString().replace('\\', '/');
     }
 
     private List<String> normalizeSchemas(String schema, List<String> schemas) {

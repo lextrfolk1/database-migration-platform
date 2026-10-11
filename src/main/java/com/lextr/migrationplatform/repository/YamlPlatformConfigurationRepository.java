@@ -29,7 +29,8 @@ public class YamlPlatformConfigurationRepository implements PlatformConfiguratio
     public MigrationPlatformInventoryConfiguration load() {
         Resource resource = resourceLoader.getResource(properties.getConfigLocation());
         if (!resource.exists()) {
-            return new MigrationPlatformInventoryConfiguration(null, Map.of(), Map.of(), Map.of());
+            throw new MigrationPlatformException("Migration platform config not found: " + properties.getConfigLocation()
+                    + " (set migration.platform.config-location)");
         }
         try (InputStream inputStream = resource.getInputStream()) {
             MigrationPlatformInventoryConfiguration configuration =

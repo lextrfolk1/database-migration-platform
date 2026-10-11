@@ -2,7 +2,9 @@ package com.lextr.migrationplatform.controller;
 
 import com.lextr.migrationplatform.dto.ExecutionResponse;
 import com.lextr.migrationplatform.dto.MigrationActionRequest;
+import com.lextr.migrationplatform.dto.MigrationHistoryResponse;
 import com.lextr.migrationplatform.mapper.MigrationRequestMapper;
+import com.lextr.migrationplatform.model.MigrationPlan;
 import com.lextr.migrationplatform.model.RunMode;
 import com.lextr.migrationplatform.orchestration.MigrationPlatformOrchestrator;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/migrations")
@@ -25,12 +29,12 @@ public class MigrationPlatformController {
     }
 
     @PostMapping("/validate")
-    public Object validate(@RequestBody MigrationActionRequest request) {
+    public MigrationPlan validate(@RequestBody MigrationActionRequest request) {
         return orchestrator.validate(requestMapper.toModel(request, RunMode.DELTA));
     }
 
     @PostMapping("/plan")
-    public Object plan(@RequestBody MigrationActionRequest request) {
+    public MigrationPlan plan(@RequestBody MigrationActionRequest request) {
         return orchestrator.plan(requestMapper.toModel(request, RunMode.DELTA));
     }
 
@@ -50,12 +54,12 @@ public class MigrationPlatformController {
     }
 
     @GetMapping("/history")
-    public Object history() {
+    public List<MigrationHistoryResponse> history() {
         return orchestrator.history();
     }
 
     @GetMapping("/status/{executionId}")
-    public Object status(@PathVariable String executionId) {
+    public MigrationHistoryResponse status(@PathVariable String executionId) {
         return orchestrator.status(executionId);
     }
 }

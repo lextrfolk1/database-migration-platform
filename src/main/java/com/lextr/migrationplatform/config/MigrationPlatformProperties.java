@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MigrationPlatformProperties {
 
     private String configLocation = "classpath:database-migration-platform.yml";
+    private String migrationsRoot = "src/main/resources/migrations";
     private String auditDirectory = "build/audit";
     private boolean allowProductionRebuild;
     private String defaultRequestedBy = "dba-operator";
@@ -16,6 +17,14 @@ public class MigrationPlatformProperties {
 
     public void setConfigLocation(String configLocation) {
         this.configLocation = configLocation;
+    }
+
+    public String getMigrationsRoot() {
+        return migrationsRoot;
+    }
+
+    public void setMigrationsRoot(String migrationsRoot) {
+        this.migrationsRoot = migrationsRoot;
     }
 
     public String getAuditDirectory() {

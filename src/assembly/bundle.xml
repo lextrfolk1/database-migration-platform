@@ -1,0 +1,38 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <!-- Deployable bundle: jar + launcher + config template + SQL migrations -->
+    <id>bundle</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <baseDirectory>database-migration-platform</baseDirectory>
+    <files>
+        <file>
+            <source>${project.build.directory}/${project.build.finalName}.jar</source>
+            <destName>database-migration-platform.jar</destName>
+        </file>
+        <file>
+            <source>migration</source>
+            <fileMode>0755</fileMode>
+        </file>
+        <file>
+            <source>migration.cmd</source>
+            <lineEnding>crlf</lineEnding>
+        </file>
+        <file>
+            <source>src/main/resources/database-migration-platform.yml</source>
+            <outputDirectory>config</outputDirectory>
+        </file>
+    </files>
+    <fileSets>
+        <fileSet>
+            <directory>src/main/resources/migrations</directory>
+            <outputDirectory>migrations</outputDirectory>
+            <excludes>
+                <exclude>**/.DS_Store</exclude>
+                <exclude>**/.gitkeep</exclude>
+            </excludes>
+        </fileSet>
+    </fileSets>
+</assembly>
