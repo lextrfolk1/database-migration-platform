@@ -9,7 +9,6 @@ import com.lextr.migrationplatform.factory.FlywayAdapterFactory;
 import com.lextr.migrationplatform.factory.MigrationModeStrategyFactory;
 import com.lextr.migrationplatform.mapper.ExecutionResponseMapper;
 import com.lextr.migrationplatform.model.ExecutionScope;
-import com.lextr.migrationplatform.model.MigrationPlan;
 import com.lextr.migrationplatform.model.MigrationRequest;
 import com.lextr.migrationplatform.model.MigrationTarget;
 import com.lextr.migrationplatform.model.RunMode;
@@ -53,8 +52,8 @@ class MigrationExecutionServiceTest {
         when(flywayFactory.getRequired("postgres")).thenReturn(flywayAdapter);
         when(flywayAdapter.create(first)).thenReturn(flyway1);
         when(flywayAdapter.create(second)).thenReturn(flyway2);
-        when(planService.createPlan(List.of(first), false)).thenReturn(plan(first, "V001 :: init [PENDING]"));
-        when(planService.createPlan(List.of(second), false)).thenReturn(plan(second, "V002 :: init [PENDING]"));
+        when(planService.createExecutionPlan(first, flyway1, List.of())).thenReturn(plan(first, "V001 :: init [PENDING]"));
+        when(planService.createExecutionPlan(second, flyway2, List.of())).thenReturn(plan(second, "V002 :: init [PENDING]"));
         doThrow(new IllegalStateException("boom")).when(flyway1).migrate();
 
         MigrationExecutionServiceImpl service = new MigrationExecutionServiceImpl(
@@ -94,8 +93,8 @@ class MigrationExecutionServiceTest {
         when(flywayFactory.getRequired("postgres")).thenReturn(flywayAdapter);
         when(flywayAdapter.create(first)).thenReturn(flyway1);
         when(flywayAdapter.create(second)).thenReturn(flyway2);
-        when(planService.createPlan(List.of(first), false)).thenReturn(plan(first, "V001 :: init [PENDING]"));
-        when(planService.createPlan(List.of(second), false)).thenReturn(plan(second, "V002 :: init [PENDING]"));
+        when(planService.createExecutionPlan(first, flyway1, List.of())).thenReturn(plan(first, "V001 :: init [PENDING]"));
+        when(planService.createExecutionPlan(second, flyway2, List.of())).thenReturn(plan(second, "V002 :: init [PENDING]"));
         doThrow(new IllegalStateException("boom")).when(flyway1).migrate();
 
         MigrationExecutionServiceImpl service = new MigrationExecutionServiceImpl(
@@ -120,11 +119,11 @@ class MigrationExecutionServiceTest {
                 false, RunMode.DELTA, continueOnError, false, false, "dba");
     }
 
-    private MigrationPlan plan(MigrationTarget target, String pending) {
-        return new MigrationPlan(List.of(new TargetMigrationPlan(
+    private TargetMigrationPlan plan(MigrationTarget target, String pending) {
+        return new TargetMigrationPlan(
                 target.service(), target.targetName(), target.databaseType(), target.environment(), target.locations(),
                 target.historyTable(), List.of(), List.of(pending), List.of(), List.of(), List.of(), List.of(), 1
-        )));
+        );
     }
 
     private MigrationTarget target(String service) {

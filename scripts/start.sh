@@ -16,6 +16,9 @@
 #   LEXTR_CLICKHOUSE_PASSWORD   — required; ClickHouse password (or empty string)
 #   DMP_CONFIG_LOCATION         — optional; override the config file path
 #                                 e.g. file:/etc/dmp/database-migration-platform.yml
+#   DMP_MIGRATIONS_ROOT         — optional; root folder for relative migration locations
+#                                 (default: src/main/resources/migrations)
+#   DMP_AUDIT_DIR               — optional; audit output folder (default: build/audit)
 #   DMP_LOG_DIR                 — optional; directory for log output (default: build/logs)
 #   DMP_PID_FILE                — optional; PID file path (default: build/dmp.pid)
 
@@ -107,6 +110,9 @@ jvm_args=()
 if [[ -n "${DMP_CONFIG_LOCATION:-}" ]]; then
     jvm_args+=("--migration.platform.config-location=${DMP_CONFIG_LOCATION}")
 fi
+# Absolute defaults so the server works regardless of the directory it is started from.
+jvm_args+=("--migration.platform.migrations-root=${DMP_MIGRATIONS_ROOT:-${PROJECT_DIR}/src/main/resources/migrations}")
+jvm_args+=("--migration.platform.audit-directory=${DMP_AUDIT_DIR:-${PROJECT_DIR}/build/audit}")
 
 # Pass through any extra arguments supplied to this script
 extra_args=("$@")

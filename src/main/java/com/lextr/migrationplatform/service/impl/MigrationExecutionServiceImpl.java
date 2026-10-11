@@ -9,9 +9,9 @@ import com.lextr.migrationplatform.factory.DatabaseAdapterFactory;
 import com.lextr.migrationplatform.factory.FlywayAdapterFactory;
 import com.lextr.migrationplatform.factory.MigrationModeStrategyFactory;
 import com.lextr.migrationplatform.mapper.ExecutionResponseMapper;
-import com.lextr.migrationplatform.model.MigrationPlan;
 import com.lextr.migrationplatform.model.MigrationRequest;
 import com.lextr.migrationplatform.model.MigrationTarget;
+import com.lextr.migrationplatform.model.TargetMigrationPlan;
 import com.lextr.migrationplatform.model.ValidationIssue;
 import com.lextr.migrationplatform.service.AuditService;
 import com.lextr.migrationplatform.service.MigrationExecutionService;
@@ -84,9 +84,9 @@ public class MigrationExecutionServiceImpl implements MigrationExecutionService 
             databaseAdapter.validateConnection(target);
             FlywayOperations flywayOperations = flywayAdapterFactory.getRequired(target.databaseType()).create(target);
             MigrationModeStrategy modeStrategy = modeStrategyFactory.getRequired(request);
-            MigrationPlan targetPlan = migrationPlanService.createPlan(List.of(target), request.allowRisky());
-            List<String> expectedMigrations = new ArrayList<>(targetPlan.targets().get(0).pendingVersionedMigrations());
-            expectedMigrations.addAll(targetPlan.targets().get(0).repeatableMigrationsToRerun());
+            TargetMigrationPlan targetPlan = migrationPlanService.createExecutionPlan(target, flywayOperations, issues);
+            List<String> expectedMigrations = new ArrayList<>(targetPlan.pendingVersionedMigrations());
+            expectedMigrations.addAll(targetPlan.repeatableMigrationsToRerun());
 
             try {
                 modeStrategy.beforeMigrate(request, target, databaseAdapter, flywayOperations);

@@ -18,7 +18,8 @@ targets:
   clickhouse-analytics-dev:
     type: clickhouse
     environment: dev
-    url: jdbc:clickhouse://localhost:8123/default
+    # v1 driver: the 0.9.x v2 driver cannot parse Flyway's parameterized history-table queries.
+    url: jdbc:clickhouse://localhost:8123/default?clickhouse.jdbc.v1=true
     username: default
     passwordEnv: LEXTR_CLICKHOUSE_PASSWORD
     baselineOnMigrate: false
@@ -26,36 +27,39 @@ targets:
     cleanDisabled: true
     historyTablePrefix: flyway_history
 
+# Locations are relative to migration.platform.migrations-root (default: src/main/resources/migrations).
 services:
   database-scripts:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - filesystem:src/main/resources/migrations/database-scripts/postgres
+          - database-scripts/postgres
+        # Never auto-baseline: a baseline at version 0 would silently skip V0__schema_creation.
+        baselineOnMigrate: false
       - target: clickhouse-analytics-dev
         locations:
-          - filesystem:src/main/resources/migrations/database-scripts/clickhouse
+          - database-scripts/clickhouse
 
   semantic-service:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - filesystem:src/main/resources/migrations/semantic-service/postgres
+          - semantic-service/postgres
 
   intelligence-service:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - filesystem:src/main/resources/migrations/intelligence-service/postgres
+          - intelligence-service/postgres
 
   workflow-service:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - filesystem:src/main/resources/migrations/workflow-service/postgres
+          - workflow-service/postgres
 
   lexie-ai:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - filesystem:src/main/resources/migrations/lexie-ai/postgres
+          - lexie-ai/postgres

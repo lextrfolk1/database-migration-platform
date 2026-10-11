@@ -1,6 +1,10 @@
 # Configuration
 
-The default config file is `classpath:database-migration-platform.yml`.
+The default config file is `classpath:database-migration-platform.yml`. Override it with `migration.platform.config-location` (or `DMP_CONFIG_LOCATION` in the launcher scripts), e.g. `file:/opt/dmp/config/database-migration-platform.yml`.
+
+## Migration locations
+
+Locations without a prefix are relative to `migration.platform.migrations-root` (default `src/main/resources/migrations`; `DMP_MIGRATIONS_ROOT` in the launcher scripts). Locations starting with `classpath:` or `filesystem:` are used as-is. SQL files are not packaged in the jar, so use relative locations for anything that must run from the deployed bundle.
 
 ## Example
 
@@ -28,17 +32,17 @@ services:
     targetMappings:
       - target: postgres-main-dev
         locations:
-          - classpath:migrations/generic-service/postgres
+          - generic-service/postgres
       - target: clickhouse-analytics-dev
         locations:
-          - classpath:migrations/generic-service/clickhouse
+          - generic-service/clickhouse
 ```
 
 ## Model
 
 - database configuration exists once under `targets`
 - services reference targets under `services.<service>.targetMappings`
-- service-to-target mappings may override schemas, placeholders, and history table name
+- service-to-target mappings may override schemas, placeholders, history table name, and `baselineOnMigrate`
 - multiple services may reference the same target database
 
 ## Secrets

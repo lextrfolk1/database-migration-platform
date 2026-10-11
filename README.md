@@ -107,9 +107,12 @@ Application defaults live in:
 Current defaults:
 
 - HTTP port: `8049`
-- config source: `classpath:database-migration-platform.yml`
-- audit directory: `build/audit`
+- config source: `classpath:database-migration-platform.yml` (`migration.platform.config-location`)
+- migrations root: `src/main/resources/migrations` (`migration.platform.migrations-root`)
+- audit directory: `build/audit` (`migration.platform.audit-directory`)
 - production rebuild: disabled by default
+
+All three locations can be overridden without rebuilding — see [Run modes](#run-modes) and [Externalizing config and SQL](#externalizing-config-and-sql).
 
 ## Current inventory
 
@@ -123,17 +126,21 @@ Configured target databases:
   - type: `clickhouse`
   - environment: `dev`
 
-Configured services:
+Configured services (locations are relative to the migrations root):
 
-- `generic-service`
-  - `classpath:migrations/generic-service/postgres`
-  - `classpath:migrations/generic-service/clickhouse`
+- `database-scripts`
+  - `database-scripts/postgres` (`baselineOnMigrate: false`, so V0 is never skipped)
+  - `database-scripts/clickhouse`
 - `semantic-service`
-  - `classpath:migrations/semantic-service/postgres`
+  - `semantic-service/postgres`
 - `intelligence-service`
-  - `classpath:migrations/intelligence-service/postgres`
+  - `intelligence-service/postgres`
+- `workflow-service`
+  - `workflow-service/postgres`
 - `lexie-ai` (VarianceAI + Variance Knowledge Hub: `variance`, `audit` schemas)
-  - `classpath:migrations/lexie-ai/postgres`
+  - `lexie-ai/postgres`
+
+The ClickHouse URL carries `?clickhouse.jdbc.v1=true`: the v2 driver in `clickhouse-jdbc 0.9.x` cannot parse Flyway's parameterized history-table queries.
 
 ## Flyway history isolation
 
@@ -182,7 +189,7 @@ Example run request:
 
 ## CLI
 
-The repo includes wrapper scripts at the project root that run the packaged JAR when available and fall back to `spring-boot:run` during development.
+The repo includes wrapper scripts at the project root. They run in **local mode** from a source checkout and in **deployed mode** from an unzipped bundle — see [Run modes](#run-modes).
 
 | OS | CLI Script | Start Server | Stop Server |
 |---|---|---|---|
@@ -487,6 +494,194 @@ All commands return structured JSON. Example output from `./migration plan`:
 }
 ```
 
+## Run modes
+
+The `migration` / `migration.cmd` launcher picks its mode automatically.
+
+| | Local mode | Deployed mode |
+|---|---|---|
+| When | `pom.xml` is next to the script (source checkout) | no `pom.xml` (unzipped bundle) |
+| What runs | `target/classes` — no jar is built | `database-migration-platform.jar` |
+| Code / config changes | compiled automatically on the next run | rebuild and redeploy the bundle |
+| SQL changes | picked up immediately (read from disk, no compile) | picked up immediately from the bundle's `migrations/` or an external folder |
+| Default config | `src/main/resources/database-migration-platform.yml` | `<bundle>/config/database-migration-platform.yml` |
+| Default migrations root | `src/main/resources/migrations` | `<bundle>/migrations` |
+| Default audit folder | `build/audit` | `<bundle>/audit` |
+
+### Local mode
+
+```bash
+./migration plan --service semantic-service --target postgres-main-dev --env dev
+```
+
+- The launcher compiles only when something under `src/main` (except `migrations/`) or `pom.xml` is newer than the last compile, then runs `java -cp target/classes:<runtime dependencies>`.
+- The dependency classpath is cached in `target/classpath.txt` and regenerated when `pom.xml` or the launcher changes. `./mvnw clean` resets everything.
+
+### Deployed mode
+
+`./mvnw package` produces `target/database-migration-platform-<version>-bundle.zip`:
+
+```text
+database-migration-platform/
+  database-migration-platform.jar     # contains no SQL
+  migration                           # launcher (macOS/Linux)
+  migration.cmd                       # launcher (Windows)
+  config/database-migration-platform.yml
+  migrations/<service>/<db>/V*.sql
+```
+
+Deploy it with:
+
+```bash
+unzip database-migration-platform-<version>-bundle.zip -d /opt
+cp qa-database-migration-platform.yml /opt/database-migration-platform/config/database-migration-platform.yml
+export LEXTR_POSTGRES_PASSWORD=...  LEXTR_CLICKHOUSE_PASSWORD=...
+/opt/database-migration-platform/migration plan --all-services --all-targets --env qa
+```
+
+### Overrides (both modes)
+
+| Variable | Purpose | Example |
+|---|---|---|
+| `DMP_CONFIG_LOCATION` | platform config | `file:/etc/dmp/qa.yml` |
+| `DMP_MIGRATIONS_ROOT` | root folder for relative migration locations | `/opt/lextr-migrations/1.4.0` |
+| `DMP_AUDIT_DIR` | audit output folder | `/var/log/dmp/audit` |
+
+Relative values are resolved from the directory you run the command in. `scripts/start.sh` / `start.cmd` accept the same variables for the API server.
+
+## Externalizing config and SQL
+
+Nothing in the platform requires the SQL or the config to live in this repository.
+
+### Config
+
+Keep one config file per environment outside the jar and point `DMP_CONFIG_LOCATION` at it (or drop it into the bundle's `config/` folder). Secrets stay in environment variables via `passwordEnv`.
+
+### SQL from outside this project
+
+1. **Lay out the external SQL** as `<root>/<service>/<db>/V<n>__<description>.sql`, matching the relative locations in the config:
+
+   ```text
+   /opt/lextr-migrations/1.4.0/
+     database-scripts/postgres/V0__schema_creation.sql
+     semantic-service/postgres/V1__semantic_layer_baseline.sql
+     ...
+   ```
+
+2. **Point the platform at it:**
+
+   ```bash
+   DMP_MIGRATIONS_ROOT=/opt/lextr-migrations/1.4.0 ./migration plan --all-services --all-targets --env qa
+   ```
+
+   Alternatively, a single service can use an absolute location in the config, e.g. `filesystem:/opt/semantic-service/db/postgres`, which lets each service own its SQL in its own repository.
+
+3. **Ship SQL as a versioned artifact** (a tagged git repo or versioned zip), so it is always clear which SQL set was deployed.
+
+4. **Never edit an applied file.** Flyway validates checksums; fixes always go into a new version.
+
+### When the SQL is removed from this repository
+
+| Area | Change needed |
+|---|---|
+| `src/assembly/bundle.xml` | remove the `migrations` `<fileSet>`; the bundle then contains only the jar, launchers and config |
+| Local mode | set `DMP_MIGRATIONS_ROOT` to your local SQL checkout, or change the `migrations-root` default |
+| SQL tests (`*MigrationTest`) | they read SQL from the classpath — move them with the SQL or remove them |
+| `maven-jar-plugin` exclude in `pom.xml` | no longer needed (harmless if left) |
+
+## Testing
+
+### Unit and integration tests
+
+```bash
+./mvnw test        # mvnw.cmd test on Windows
+```
+
+`SemanticLayerBaselineMigrationTest` starts its own throwaway PostgreSQL container and is skipped when Docker is not running. No test touches a shared database.
+
+### End-to-end: both modes against fresh Docker databases
+
+Never run this against a shared database. Each mode gets its own PostgreSQL and ClickHouse instance so the results can be compared.
+
+**1. Start the databases**
+
+```bash
+docker run -d --name dmp-test-pg-local -p 5544:5432 -e POSTGRES_USER=lextr_user -e POSTGRES_PASSWORD=dmp_test -e POSTGRES_DB=lextr_local pgvector/pgvector:pg16
+docker run -d --name dmp-test-pg-jar   -p 5545:5432 -e POSTGRES_USER=lextr_user -e POSTGRES_PASSWORD=dmp_test -e POSTGRES_DB=lextr_jar   pgvector/pgvector:pg16
+docker run -d --name dmp-test-ch-local -p 18123:8123 -e CLICKHOUSE_PASSWORD=dmp_test clickhouse/clickhouse-server:24.8
+docker run -d --name dmp-test-ch-jar   -p 18124:8123 -e CLICKHOUSE_PASSWORD=dmp_test clickhouse/clickhouse-server:24.8
+export LEXTR_POSTGRES_PASSWORD=dmp_test LEXTR_CLICKHOUSE_PASSWORD=dmp_test
+```
+
+The `pgvector` image is required: the migrations create the `vector`, `pgcrypto` and `pg_trgm` extensions and assign objects to `lextr_user`.
+
+**2. Create one config per mode** (copies of the real config with only the URLs changed)
+
+```bash
+mkdir -p /tmp/dmp-e2e && cd /tmp/dmp-e2e
+CFG=<repo>/src/main/resources/database-migration-platform.yml
+sed -e 's#localhost:5433/lextr#localhost:5544/lextr_local#' -e 's#localhost:8123/#localhost:18123/#' $CFG > local.yml
+sed -e 's#localhost:5433/lextr#localhost:5545/lextr_jar#'   -e 's#localhost:8123/#localhost:18124/#' $CFG > jar.yml
+grep url: local.yml jar.yml    # confirm no shared database is referenced
+```
+
+**3. Local mode**
+
+```bash
+DMP_CONFIG_LOCATION=file:local.yml DMP_AUDIT_DIR=audit-local \
+  <repo>/migration run --all-services --all-targets --env dev --allow-risky
+```
+
+**4. Deployed (jar) mode**
+
+```bash
+(cd <repo> && ./mvnw package)
+unzip -q <repo>/target/*-bundle.zip -d bundle
+cp jar.yml bundle/database-migration-platform/config/database-migration-platform.yml
+bundle/database-migration-platform/migration run --all-services --all-targets --env dev --allow-risky
+```
+
+`--allow-risky` is needed because existing `database-scripts` files contain `DROP COLUMN` / `RENAME COLUMN`.
+
+**5. Compare the two databases**
+
+```bash
+pg_local() { docker exec -i dmp-test-pg-local "$@" -U lextr_user -d lextr_local; }
+pg_jar()   { docker exec -i dmp-test-pg-jar   "$@" -U lextr_user -d lextr_jar; }
+HIST="select string_agg(t, ' union all ' order by t) from (select format('select %L, version, script, checksum, success from %I.%I', table_name, table_schema, table_name) t from information_schema.tables where table_name like 'flyway_history%') x"
+
+# Flyway history (should be identical, no failed rows)
+diff <(pg_local psql -Atc "$(pg_local psql -Atc "$HIST") order by 1,2" </dev/null) \
+     <(pg_jar   psql -Atc "$(pg_jar   psql -Atc "$HIST") order by 1,2" </dev/null) && echo "history identical"
+
+# Schema
+strip() { grep -vE '^--|^$|^SET |set_config|^\\(un)?restrict '; }
+diff <(pg_local pg_dump --schema-only --no-owner --no-privileges | strip) \
+     <(pg_jar   pg_dump --schema-only --no-owner --no-privileges | strip) && echo "schema identical"
+
+# ClickHouse
+for p in 18123 18124; do curl -s -u default:dmp_test "http://localhost:$p/" \
+  --data-binary "SELECT version, script, checksum, success FROM default.flyway_history_database_scripts FORMAT TSV"; done
+```
+
+Expected: every run returns `"status" : "SUCCESS"`, history/schema/ClickHouse are identical between modes, and every configured SQL file appears in history with `success = t`. Re-running step 3 or 4 applies nothing.
+
+**6. Clean up**
+
+```bash
+docker rm -f dmp-test-pg-local dmp-test-pg-jar dmp-test-ch-local dmp-test-ch-jar
+```
+
+### Quick checks
+
+| Check | Command | Expected |
+|---|---|---|
+| Local recompiles only when needed | run `./migration services list` twice | second run has no "Compiling…" |
+| SQL edits need no compile | add a SQL file, run `./migration plan …` | no compile; file listed as pending |
+| Jar has no SQL | `unzip -l target/database-migration-platform-*.jar \| grep -c '\.sql$'` | `0` |
+| Missing migrations root | `DMP_MIGRATIONS_ROOT=/nope ./migration inventory` | `Migrations root does not exist` |
+| Missing config | `DMP_CONFIG_LOCATION=file:/nope.yml ./migration inventory` | `Migration platform config not found` |
+
 ## Local development
 
 ### Run tests
@@ -556,6 +751,7 @@ docker compose up --build
 - `src/main/resources/application.yml`
 - `src/main/resources/database-migration-platform.yml`
 - `src/main/resources/migrations/**`
+- `src/assembly/bundle.xml` — deployable bundle layout
 - `docs/architecture.md`
 - `docs/usage.md`
 - `migration` — CLI entry point (Linux / macOS)
