@@ -47,8 +47,6 @@ services:
       - target: postgres-main-dev
         locations:
           - filesystem:src/main/resources/migrations/intelligence-service/postgres
-        placeholders:
-          schema: intelligence
 
   workflow-service:
     targetMappings:

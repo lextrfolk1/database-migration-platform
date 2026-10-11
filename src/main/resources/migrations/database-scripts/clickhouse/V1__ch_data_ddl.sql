@@ -1,3 +1,6 @@
+-- Create dataabase if it does not exist
+CREATE DATABASE IF NOT EXISTS data;
+
 -- CLICKHOUSE LEDGER SUMMARY TABLE
 DROP TABLE IF EXISTS data.ledger_summary;
 CREATE TABLE data.ledger_summary
