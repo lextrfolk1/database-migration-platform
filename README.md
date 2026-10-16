@@ -767,3 +767,4 @@ docker compose up --build
 ./migration run --service semantic-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
 ./migration run --service workflow-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
 ./migration run --service intelligence-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+./migration run --service lexie-ai --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
