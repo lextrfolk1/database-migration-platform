@@ -764,12 +764,24 @@ docker compose up --build
 
 ## Sample commands
 
-#### PostgreSQL
+### PostgreSQL
+```bash
 ./migration run --service database-scripts --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+```
+```bash
 ./migration run --service semantic-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+```
+```bash
 ./migration run --service workflow-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+```
+```bash
 ./migration run --service intelligence-service --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+```
+```bash
 ./migration run --service lexie-ai --target postgres-main-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+```
 
 ### Clickhouse
+```bash
 ./migration run --service database-scripts --target clickhouse-analytics-dev --env dev --allow-risky --requested-by lextrfolk1 --confirm
+```
