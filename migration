@@ -31,7 +31,7 @@ cd "${DMP_HOME}"
 MAIN_CLASS="com.lextr.migrationplatform.MigrationPlatformApplication"
 
 export LEXTR_POSTGRES_PASSWORD="${LEXTR_POSTGRES_PASSWORD:-Mygooru1028$}"
-export LEXTR_CLICKHOUSE_PASSWORD="${LEXTR_CLICKHOUSE_PASSWORD:-}"
+export LEXTR_CLICKHOUSE_PASSWORD="${LEXTR_CLICKHOUSE_PASSWORD:-clickhouse}"
 
 java_opts=()
 add_opt() {

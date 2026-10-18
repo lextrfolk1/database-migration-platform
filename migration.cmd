@@ -33,7 +33,7 @@ set "MAIN_CLASS=com.lextr.migrationplatform.MigrationPlatformApplication"
 if "%LEXTR_POSTGRES_PASSWORD%"=="" set "LEXTR_POSTGRES_PASSWORD=Mygooru1028$"
 
 set "JAVA_OPTS="
-if not defined LEXTR_CLICKHOUSE_PASSWORD set "JAVA_OPTS=-DLEXTR_CLICKHOUSE_PASSWORD="
+if not defined LEXTR_CLICKHOUSE_PASSWORD set "LEXTR_CLICKHOUSE_PASSWORD=clickhouse"
 
 if exist "pom.xml" goto local
 
