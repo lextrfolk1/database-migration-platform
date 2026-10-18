@@ -70,7 +70,7 @@ if [[ "${java_version}" -lt 17 ]]; then
 fi
 
 export LEXTR_POSTGRES_PASSWORD="${LEXTR_POSTGRES_PASSWORD:-Mygooru1028$}"
-export LEXTR_CLICKHOUSE_PASSWORD="${LEXTR_CLICKHOUSE_PASSWORD:-}"
+export LEXTR_CLICKHOUSE_PASSWORD="${LEXTR_CLICKHOUSE_PASSWORD:-clickhouse}"
 
 # Environment variables for secrets
 if [[ -z "${LEXTR_POSTGRES_PASSWORD+x}" ]]; then
