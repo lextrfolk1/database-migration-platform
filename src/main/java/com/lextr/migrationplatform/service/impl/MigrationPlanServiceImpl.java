@@ -38,45 +38,55 @@ public class MigrationPlanServiceImpl implements MigrationPlanService {
             } catch (Exception exception) {
                 checksumIssues.add(exception.getMessage());
             }
-
-            List<String> alreadyApplied = new ArrayList<>();
-            List<String> pendingVersioned = new ArrayList<>();
-            List<String> repeatableToRerun = new ArrayList<>();
-            List<String> riskWarnings = validationIssues.stream()
-                    .filter(issue -> issue.code().contains("RISK"))
-                    .map(ValidationIssue::message)
-                    .toList();
-
-            for (MigrationInfo info : flyway.infoAll()) {
-                String label = format(info);
-                if (info.getInstalledOn() != null) {
-                    alreadyApplied.add(label);
-                }
-                if ("PENDING".equals(info.getState().name()) && info.getVersion() != null) {
-                    pendingVersioned.add(label);
-                }
-                if (info.getVersion() == null && ("PENDING".equals(info.getState().name()) || "OUTDATED".equals(info.getState().name()))) {
-                    repeatableToRerun.add(label);
-                }
-            }
-
-            plans.add(new TargetMigrationPlan(
-                    target.service(),
-                    target.targetName(),
-                    target.databaseType(),
-                    target.environment(),
-                    target.locations(),
-                    target.historyTable(),
-                    alreadyApplied,
-                    pendingVersioned,
-                    repeatableToRerun,
-                    checksumIssues,
-                    validationIssues.stream().filter(issue -> issue.severity() != com.lextr.migrationplatform.model.IssueSeverity.ERROR).toList(),
-                    riskWarnings,
-                    order++
-            ));
+            plans.add(buildTargetPlan(target, flyway, validationIssues, checksumIssues, order++));
         }
         return new MigrationPlan(plans);
+    }
+
+    @Override
+    public TargetMigrationPlan createExecutionPlan(MigrationTarget target, FlywayOperations flyway, List<ValidationIssue> validationIssues) {
+        // Checksum validation is skipped here: flyway.migrate() validates on migrate.
+        return buildTargetPlan(target, flyway, validationIssues, List.of(), 1);
+    }
+
+    private TargetMigrationPlan buildTargetPlan(MigrationTarget target, FlywayOperations flyway, List<ValidationIssue> validationIssues,
+                                                List<String> checksumIssues, int order) {
+        List<String> alreadyApplied = new ArrayList<>();
+        List<String> pendingVersioned = new ArrayList<>();
+        List<String> repeatableToRerun = new ArrayList<>();
+        List<String> riskWarnings = validationIssues.stream()
+                .filter(issue -> issue.code().contains("RISK"))
+                .map(ValidationIssue::message)
+                .toList();
+
+        for (MigrationInfo info : flyway.infoAll()) {
+            String label = format(info);
+            if (info.getInstalledOn() != null) {
+                alreadyApplied.add(label);
+            }
+            if ("PENDING".equals(info.getState().name()) && info.getVersion() != null) {
+                pendingVersioned.add(label);
+            }
+            if (info.getVersion() == null && ("PENDING".equals(info.getState().name()) || "OUTDATED".equals(info.getState().name()))) {
+                repeatableToRerun.add(label);
+            }
+        }
+
+        return new TargetMigrationPlan(
+                target.service(),
+                target.targetName(),
+                target.databaseType(),
+                target.environment(),
+                target.locations(),
+                target.historyTable(),
+                alreadyApplied,
+                pendingVersioned,
+                repeatableToRerun,
+                checksumIssues,
+                validationIssues.stream().filter(issue -> issue.severity() != com.lextr.migrationplatform.model.IssueSeverity.ERROR).toList(),
+                riskWarnings,
+                order
+        );
     }
 
     private String format(MigrationInfo info) {

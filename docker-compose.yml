@@ -5,12 +5,13 @@ name: database-migration-platform
 
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:24.8
+    # Matches infrastructure/deployments/infrastructure/datastores/clickhouse/deployment.yaml.
+    image: clickhouse/clickhouse-server:23.8-alpine
     container_name: database-migration-platform-clickhouse
     environment:
-      CLICKHOUSE_DB: default
+      CLICKHOUSE_DB: data
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_PASSWORD: ${LEXTR_CLICKHOUSE_PASSWORD:-clickhouse}
     ports:
       - "8123:8123"
       - "9000:9000"

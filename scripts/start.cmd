@@ -15,6 +15,8 @@ rem Environment variables:
 rem   LEXTR_POSTGRES_PASSWORD     — required; PostgreSQL password (or empty string)
 rem   LEXTR_CLICKHOUSE_PASSWORD   — required; ClickHouse password (or empty string)
 rem   DMP_CONFIG_LOCATION         — optional; override the config file path
+rem   DMP_MIGRATIONS_ROOT         — optional; root folder for relative migration locations
+rem   DMP_AUDIT_DIR               — optional; audit output folder
 rem   DMP_LOG_DIR                 — optional; directory for log output (default: build\logs)
 rem   DMP_PID_FILE                — optional; PID file path (default: build\dmp.pid)
 
@@ -96,9 +98,14 @@ if not exist "%JAR_PATH%" (
 )
 
 rem ─── Assemble arguments ────────────────────────────────────────────────────
-set "JVM_ARGS="
+rem Absolute defaults so the server works regardless of the directory it is started from.
+if not defined DMP_MIGRATIONS_ROOT set "DMP_MIGRATIONS_ROOT=%PROJECT_DIR%\src\main\resources\migrations"
+if not defined DMP_AUDIT_DIR set "DMP_AUDIT_DIR=%PROJECT_DIR%\build\audit"
+rem PowerShell list items quoted with [char]34, so paths with spaces stay one argument and no literal
+rem double quotes interfere with cmd's own quoting (paths with parentheses keep working).
+set "JVM_ARGS=([char]34 + '--migration.platform.migrations-root=%DMP_MIGRATIONS_ROOT%' + [char]34), ([char]34 + '--migration.platform.audit-directory=%DMP_AUDIT_DIR%' + [char]34)"
 if defined DMP_CONFIG_LOCATION (
-    set "JVM_ARGS=--migration.platform.config-location=%DMP_CONFIG_LOCATION%"
+    set "JVM_ARGS=!JVM_ARGS!, ([char]34 + '--migration.platform.config-location=%DMP_CONFIG_LOCATION%' + [char]34)"
 )
 
 rem ─── Create log directory ──────────────────────────────────────────────────
@@ -111,7 +118,7 @@ echo [%DATE% %TIME%]   Log file: %LOG_FILE%
 echo [%DATE% %TIME%]   PID file: %PID_FILE%
 
 rem Start the application in the background using PowerShell
-for /f "tokens=*" %%P in ('powershell -NoProfile -Command "Start-Process -FilePath 'java' -ArgumentList '-jar', '%JAR_PATH%', '%JVM_ARGS%', '%*' -NoNewWindow -PassThru -RedirectStandardOutput '%LOG_FILE%' -RedirectStandardError '%LOG_DIR%\error.log' | Select-Object -ExpandProperty Id"') do (
+for /f "tokens=*" %%P in ('powershell -NoProfile -Command "Start-Process -FilePath 'java' -ArgumentList '-jar', ([char]34 + '%JAR_PATH%' + [char]34), %JVM_ARGS%, '%*' -NoNewWindow -PassThru -RedirectStandardOutput '%LOG_FILE%' -RedirectStandardError '%LOG_DIR%\error.log' | Select-Object -ExpandProperty Id"') do (
     set "APP_PID=%%P"
 )
 

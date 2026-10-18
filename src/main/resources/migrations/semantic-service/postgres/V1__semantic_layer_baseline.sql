@@ -43,6 +43,50 @@
 -- ----------------------------------------------------------------------------
 -- SCHEMAS  (Semantic Layer subset — all PostgreSQL)
 -- ----------------------------------------------------------------------------
+-- Reset all semantic-layer objects so this migration set can be applied repeatedly.
+-- Do not drop the shared meta schema: workflow-service tables and Flyway history also
+-- reside there. CASCADE removes dependencies, constraints, indexes, and seed data owned
+-- by the listed semantic-layer tables.
+DROP TABLE IF EXISTS meta.external_rule_result CASCADE;
+DROP TABLE IF EXISTS meta.consumption_promotion CASCADE;
+DROP TABLE IF EXISTS meta.consumption_outbound_grain CASCADE;
+DROP TABLE IF EXISTS meta.consumption_outbound CASCADE;
+DROP TABLE IF EXISTS meta.consumption_layer CASCADE;
+DROP TABLE IF EXISTS meta.dq_result CASCADE;
+DROP TABLE IF EXISTS meta.dq_rule_attribute CASCADE;
+DROP TABLE IF EXISTS meta.dq_rule_catalog CASCADE;
+DROP TABLE IF EXISTS meta.profiling_result CASCADE;
+DROP TABLE IF EXISTS meta.observability_signal CASCADE;
+DROP TABLE IF EXISTS meta.attribute_access_grant CASCADE;
+DROP TABLE IF EXISTS meta.domain_value_text CASCADE;
+DROP TABLE IF EXISTS meta.domain_value_source_map CASCADE;
+DROP TABLE IF EXISTS meta.domain_value_synonym CASCADE;
+DROP TABLE IF EXISTS meta.domain_value CASCADE;
+DROP TABLE IF EXISTS meta.domain_catalog CASCADE;
+DROP TABLE IF EXISTS meta.logical_hierarchy_level CASCADE;
+DROP TABLE IF EXISTS meta.logical_hierarchy CASCADE;
+DROP TABLE IF EXISTS meta.tenant_workspace_object CASCADE;
+DROP TABLE IF EXISTS meta.tenant_workspace CASCADE;
+DROP TABLE IF EXISTS meta.data_classification_ref CASCADE;
+DROP TABLE IF EXISTS meta.filter_lookup_binding CASCADE;
+DROP TABLE IF EXISTS meta.filter_lookup_exec_log CASCADE;
+DROP TABLE IF EXISTS meta.filter_lookup_value CASCADE;
+DROP TABLE IF EXISTS meta.semantic_filter_lookup CASCADE;
+DROP TABLE IF EXISTS meta.attribute_pairing_value_cache CASCADE;
+DROP TABLE IF EXISTS meta.attribute_pairing_catalog CASCADE;
+DROP TABLE IF EXISTS meta.attribute_logical_name_override CASCADE;
+DROP TABLE IF EXISTS meta.semantic_relationship_catalog CASCADE;
+DROP TABLE IF EXISTS meta.attribute_catalog CASCADE;
+DROP TABLE IF EXISTS meta.object_catalog CASCADE;
+DROP TABLE IF EXISTS meta.data_connection CASCADE;
+DROP TABLE IF EXISTS meta.schema_catalog CASCADE;
+DROP TABLE IF EXISTS meta.metadata_change_history CASCADE;
+DROP TABLE IF EXISTS wkfl.workflow_task CASCADE;
+DROP TABLE IF EXISTS report.report_line_definition CASCADE;
+DROP TABLE IF EXISTS report.report_definition CASCADE;
+DROP TABLE IF EXISTS ref.country CASCADE;
+DROP TABLE IF EXISTS governance.policy_preset CASCADE;
+
 CREATE SCHEMA IF NOT EXISTS meta;          -- semantic catalog (system of record)
 CREATE SCHEMA IF NOT EXISTS governance;    -- governance presets (DB-driven values)
 CREATE SCHEMA IF NOT EXISTS ref;           -- reference / regulatory reference data
@@ -586,6 +630,9 @@ CREATE TABLE ref.country (
 -- ============================================================================
 -- SEED — governance presets (GOV-FL-001..006). Values DB-driven; never hardcoded.
 -- ============================================================================
+DELETE FROM governance.policy_preset
+WHERE policy_cd IN ('GOV-FL-001', 'GOV-FL-002', 'GOV-FL-003', 'GOV-FL-004', 'GOV-FL-005', 'GOV-FL-006');
+
 INSERT INTO governance.policy_preset
   (policy_cd, policy_nm, policy_scope_cd, default_value_txt, data_type_cd,
    is_overrideable_flg, override_requires_approval_flg) VALUES
@@ -600,6 +647,13 @@ ON CONFLICT (policy_cd) DO NOTHING;
 -- ============================================================================
 -- SEED — connection registry (PostgreSQL primary, ClickHouse analytics, Neo4j graph)
 -- ============================================================================
+DELETE FROM meta.data_connection
+WHERE connection_id IN (
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000003'
+);
+
 INSERT INTO meta.data_connection
   (connection_id, connection_cd, connection_nm, engine_cd, connection_type_cd, is_default_flg) VALUES
  ('00000000-0000-0000-0000-000000000001','LEXTR_PG','Lextr PostgreSQL','POSTGRES','PRIMARY',true),

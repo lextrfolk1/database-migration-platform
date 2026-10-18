@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS meta.data_classification_ref (
         ('ALLOWED','RESTRICTED','BLOCKED'))
 );
 
+DELETE FROM meta.data_classification_ref;
+
 INSERT INTO meta.data_classification_ref (
     data_classification_cd,
     data_classification_nm,
@@ -189,6 +191,9 @@ CREATE INDEX IF NOT EXISTS ix_os_type ON meta.observability_signal
     (client_id, signal_type_cd, detected_ts DESC);
 CREATE INDEX IF NOT EXISTS ix_os_detected ON meta.observability_signal (detected_ts DESC);
 CREATE INDEX IF NOT EXISTS ix_os_workflow_task ON meta.observability_signal (workflow_task_id);
+
+DELETE FROM governance.policy_preset
+WHERE policy_cd IN ('GOV-OS-001', 'GOV-OS-002');
 
 INSERT INTO governance.policy_preset
   (policy_cd, policy_nm, policy_scope_cd, default_value_txt, data_type_cd,

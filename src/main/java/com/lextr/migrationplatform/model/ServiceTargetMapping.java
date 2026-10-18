@@ -8,6 +8,7 @@ public record ServiceTargetMapping(
         List<String> locations,
         List<String> schemas,
         String historyTable,
-        Map<String, String> placeholders
+        Map<String, String> placeholders,
+        Boolean baselineOnMigrate
 ) {
 }

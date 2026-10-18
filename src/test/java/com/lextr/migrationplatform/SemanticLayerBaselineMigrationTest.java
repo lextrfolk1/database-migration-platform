@@ -287,6 +287,21 @@ class SemanticLayerBaselineMigrationTest {
     }
 
     @Test
+    void sqlFileContainsAllExpectedConstraints() throws IOException {
+        if (migrationSql == null) {
+            loadMigrationSql();
+        }
+        for (String constraintName : EXPECTED_CONSTRAINTS) {
+            assertTrue(
+                    migrationSql.contains("CONSTRAINT " + constraintName + " ")
+                            || migrationSql.contains("CONSTRAINT " + constraintName + "\n")
+                            || migrationSql.contains("CONSTRAINT " + constraintName + "\r\n"),
+                    "Missing constraint definition in baseline migration for: " + constraintName
+            );
+        }
+    }
+
+    @Test
     void sixGovernancePresetsSeeded() throws SQLException {
         Assumptions.assumeTrue(isDockerRunning(), "Docker daemon must be running to execute database integration tests");
         Map<String, String> defaultValues = new LinkedHashMap<>();

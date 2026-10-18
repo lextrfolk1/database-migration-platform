@@ -119,7 +119,7 @@ public class MigrationInventoryServiceImpl implements MigrationInventoryService 
                 targetDatabase.driverClassName(),
                 mapping.locations(),
                 schemas,
-                targetDatabase.baselineOnMigrate(),
+                mapping.baselineOnMigrate() != null ? mapping.baselineOnMigrate() : targetDatabase.baselineOnMigrate(),
                 targetDatabase.baselineVersion(),
                 targetDatabase.cleanDisabled(),
                 historyTableResolver.resolve(serviceName, targetDatabase, mapping),

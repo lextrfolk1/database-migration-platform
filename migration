@@ -1,21 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-JAR_PATH="target/database-migration-platform-0.0.1-SNAPSHOT.jar"
+# Two modes:
+#   local    (pom.xml next to this script): compiles changed sources and runs from target/classes,
+#            so the latest code, config and SQL are always used. No jar is built.
+#   deployed (no pom.xml): runs the bundled jar with externalized config and SQL locations.
+#
+# Overrides (both modes):
+#   DMP_CONFIG_LOCATION   platform config, e.g. file:/opt/dmp/config/database-migration-platform.yml
+#   DMP_MIGRATIONS_ROOT   root folder for relative migration locations
+#   DMP_AUDIT_DIR         audit output folder
+# Relative override paths are resolved against the directory the script is run from.
+
+# Make relative override paths absolute before changing directory.
+abs_path() {
+  case "$1" in
+    ""|/*) printf '%s' "$1" ;;
+    *) printf '%s' "${PWD}/$1" ;;
+  esac
+}
+if [[ "${DMP_CONFIG_LOCATION:-}" == file:* ]]; then
+  DMP_CONFIG_LOCATION="file:$(abs_path "${DMP_CONFIG_LOCATION#file:}")"
+fi
+DMP_MIGRATIONS_ROOT="$(abs_path "${DMP_MIGRATIONS_ROOT:-}")"
+DMP_AUDIT_DIR="$(abs_path "${DMP_AUDIT_DIR:-}")"
+
+DMP_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${DMP_HOME}"
+
+MAIN_CLASS="com.lextr.migrationplatform.MigrationPlatformApplication"
 
 export LEXTR_POSTGRES_PASSWORD="${LEXTR_POSTGRES_PASSWORD:-Mygooru1028$}"
-export LEXTR_CLICKHOUSE_PASSWORD="${LEXTR_CLICKHOUSE_PASSWORD:-}"
+export LEXTR_CLICKHOUSE_PASSWORD="${LEXTR_CLICKHOUSE_PASSWORD:-clickhouse}"
 
-run_with_maven() {
-  joined=""
-  for arg in "$@"; do
-    joined+="${arg} "
-  done
-  sh mvnw -q spring-boot:run "-Dspring-boot.run.arguments=${joined% }"
+java_opts=()
+add_opt() {
+  if [[ -n "$2" ]]; then
+    java_opts+=("-D$1=$2")
+  fi
 }
 
-if [[ -f "${JAR_PATH}" ]] && unzip -p "${JAR_PATH}" META-INF/MANIFEST.MF 2>/dev/null | grep -q "Main-Class: org.springframework.boot.loader.launch.JarLauncher"; then
-  java -jar "${JAR_PATH}" "$@"
-else
-  run_with_maven "$@"
+if [[ -f pom.xml ]]; then
+  CLASSES_DIR="target/classes"
+  CLASSPATH_FILE="target/classpath.txt"
+  BUILD_STAMP="target/.dmp-compiled"
+
+  # SQL migrations are read from the source tree, so only code/config changes need a compile.
+  if [[ ! -f "${BUILD_STAMP}" ]] || [[ -n "$(find pom.xml src/main -path src/main/resources/migrations -prune -o -newer "${BUILD_STAMP}" -print | head -1)" ]]; then
+    echo "Compiling sources..." >&2
+    sh mvnw -q -DskipTests compile >&2
+    touch "${BUILD_STAMP}"
+  fi
+  # Regenerate when the dependencies or this script (which defines the classpath command) change.
+  if [[ ! -f "${CLASSPATH_FILE}" ]] || [[ pom.xml -nt "${CLASSPATH_FILE}" ]] || [[ migration -nt "${CLASSPATH_FILE}" ]]; then
+    echo "Resolving dependency classpath..." >&2
+    sh mvnw -q dependency:build-classpath -DincludeScope=runtime "-Dmdep.outputFile=${CLASSPATH_FILE}" >&2
+    touch "${CLASSPATH_FILE}"  # the plugin leaves the file untouched when its content is unchanged
+  fi
+
+  add_opt migration.platform.config-location "${DMP_CONFIG_LOCATION:-}"
+  add_opt migration.platform.migrations-root "${DMP_MIGRATIONS_ROOT:-}"
+  add_opt migration.platform.audit-directory "${DMP_AUDIT_DIR:-}"
+
+  exec java ${java_opts[@]+"${java_opts[@]}"} -cp "${CLASSES_DIR}:$(cat "${CLASSPATH_FILE}")" "${MAIN_CLASS}" "$@"
 fi
+
+JAR_PATH="${DMP_HOME}/database-migration-platform.jar"
+if [[ ! -f "${JAR_PATH}" ]]; then
+  echo "ERROR: ${JAR_PATH} not found." >&2
+  exit 1
+fi
+
+add_opt migration.platform.config-location "${DMP_CONFIG_LOCATION:-file:${DMP_HOME}/config/database-migration-platform.yml}"
+add_opt migration.platform.migrations-root "${DMP_MIGRATIONS_ROOT:-${DMP_HOME}/migrations}"
+add_opt migration.platform.audit-directory "${DMP_AUDIT_DIR:-${DMP_HOME}/audit}"
+
+exec java "${java_opts[@]}" -jar "${JAR_PATH}" "$@"

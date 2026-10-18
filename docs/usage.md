@@ -1,6 +1,34 @@
 # Usage
 
-The repo includes a `migration` wrapper script. It runs the packaged jar when available and falls back to Spring Boot during development.
+The `migration` wrapper script has two modes:
+
+- **Local** (run from a source checkout, `pom.xml` present): compiles changed code/config and runs from `target/classes`, so the latest code, config and SQL are always used. No jar is built. SQL edits never need a compile.
+- **Deployed** (run from an unzipped bundle, no `pom.xml`): runs `database-migration-platform.jar` with config and SQL taken from next to the script.
+
+## Deploying
+
+`./mvnw package` produces `target/database-migration-platform-<version>-bundle.zip`:
+
+```
+database-migration-platform/
+  database-migration-platform.jar     # contains no SQL
+  migration                           # launcher (macOS/Linux)
+  migration.cmd                       # launcher (Windows)
+  config/database-migration-platform.yml
+  migrations/<service>/<db>/V*.sql
+```
+
+Unzip it on the target machine, replace `config/database-migration-platform.yml` with that environment's config, and run `./migration ...` (or `migration.cmd ...` on Windows).
+
+Overrides (both modes):
+
+| Variable | Default (deployed) | Purpose |
+|---|---|---|
+| `DMP_CONFIG_LOCATION` | `file:<bundle>/config/database-migration-platform.yml` | platform config |
+| `DMP_MIGRATIONS_ROOT` | `<bundle>/migrations` | root for relative migration locations |
+| `DMP_AUDIT_DIR` | `<bundle>/audit` | audit output |
+
+Locally the defaults are the bundled config, `src/main/resources/migrations` and `build/audit`. Relative override paths are resolved from the directory you run the command in.
 
 ## CLI
 
