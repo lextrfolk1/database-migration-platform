@@ -41,7 +41,7 @@ class DatabaseScriptsServiceMigrationTest {
     @Test
     void databaseScriptsPostgresMigrationFilesAreValidAndParsable() {
         List<Resource> resources = resourceLocator.sqlResources("classpath:migrations/database-scripts/postgres");
-        assertEquals(7, resources.size(), "Expected 7 SQL migration scripts under database-scripts/postgres");
+        assertEquals(8, resources.size(), "Expected 8 SQL migration scripts under database-scripts/postgres");
 
         for (Resource resource : resources) {
             String filename = resource.getFilename();
